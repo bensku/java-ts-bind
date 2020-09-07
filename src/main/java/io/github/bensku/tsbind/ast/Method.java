@@ -19,13 +19,23 @@ public class Method extends Member {
 	 */
 	public final List<Parameter> params;
 	
+	/**
+	 * Type (generic) parameters.
+	 */
 	public final List<TypeParam> typeParams;
 	
-	public Method(String name, TypeRef returnType, List<Parameter> params, List<TypeParam> typeParams, String javadoc, boolean isStatic) {
+	/**
+	 * If this is annotated with {@link Override}.
+	 */
+	public final boolean isOverride;
+	
+	public Method(String name, TypeRef returnType, List<Parameter> params, List<TypeParam> typeParams, String javadoc,
+			boolean isStatic, boolean isOverride) {
 		super(javadoc, isStatic);
 		this.name = name;
 		this.returnType = returnType;
 		this.params = params;
 		this.typeParams = typeParams;
+		this.isOverride = isOverride;
 	}
 }

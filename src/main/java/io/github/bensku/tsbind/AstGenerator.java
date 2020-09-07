@@ -45,6 +45,11 @@ public class AstGenerator {
 		this.parser = parser;
 	}
 	
+	/**
+	 * Parses type AST from source code.
+	 * @param source Source unit (single Java file).
+	 * @return Parsed type.
+	 */
 	public Type parseType(SourceUnit source) {
 		ParseResult<CompilationUnit> result = parser.parse(source.code);
 		if (!result.isSuccessful()) {
@@ -118,19 +123,21 @@ public class AstGenerator {
 				String name = method.getName();
 				TypeRef returnType = convertType(method.getReturnType());
 				String methodDoc = getJavadoc(member);
+				boolean override = member.getAnnotationByClass(Override.class).isPresent();
 				// TODO check if GraalJS works with "is" for boolean getter too
 				if (name.startsWith("get") && !method.getReturnType().isVoid()
 						&& method.getNumberOfParams() == 0 && method.getTypeParameters().isEmpty()) {
 					// GraalJS will make this getter work, somehow
-					members.add(new Getter(name, returnType, methodDoc));
+					members.add(new Getter(name, returnType, methodDoc, override));
 				} else if (name.startsWith("set") && method.getReturnType().isVoid()
 						&& method.getNumberOfParams() == 1 && method.getTypeParameters().isEmpty()) {
 					// GraalJS will make this setter work, somehow
-					members.add(new Setter(name, returnType, methodDoc));
+					members.add(new Setter(name, returnType, methodDoc, override));
 				} else { // Normal method
 					// Resolve type parameters and add to member list
 					members.add(new Method(name, returnType, getParameters(method),
-							convertTypeParams(method.getTypeParameters()), methodDoc, method.isStatic()));
+							convertTypeParams(method.getTypeParameters()), methodDoc,
+							method.isStatic(), override));
 				}
 			} else if (member.isFieldDeclaration()) {
 				ResolvedFieldDeclaration field = member.asFieldDeclaration().resolve();

@@ -1,4 +1,4 @@
-package io.github.bensku.tsbind.binding;
+package io.github.bensku.tsbind;
 
 import java.util.stream.Stream;
 

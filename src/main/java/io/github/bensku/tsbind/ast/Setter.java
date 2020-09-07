@@ -10,9 +10,9 @@ public class Setter extends Method {
 	
 	public final String originalName;
 
-	public Setter(String name, TypeRef type, String javadoc) {
+	public Setter(String name, TypeRef type, String javadoc, boolean isOverride) {
 		super(setterName(name), TypeRef.VOID, Collections.singletonList(new Parameter(setterName(name), type)),
-				Collections.emptyList(), javadoc, false);
+				Collections.emptyList(), javadoc, false, isOverride);
 		this.originalName = name;
 	}
 }
