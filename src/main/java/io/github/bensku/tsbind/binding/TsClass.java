@@ -18,14 +18,26 @@ public class TsClass implements TsElement {
 	private final Optional<TsType> superclass;
 	
 	/**
-	 * Interfaces in TypeScript.
+	 * Interfaces in TypeScript. While all Java interfaces are declared as
+	 * TS classes, they are always used with 'implements' - even when
+	 * 'extends' would be used for interfaces extending each other in Java.
 	 */
 	private final List<TsType> interfaces;
 	
-	public TsClass(TsType superclass, List<TsType> interfaces) {
+	/**
+	 * Type parameters.
+	 */
+	private final List<TsTypeParam> typeParams;
+	
+	public TsClass(TsType superclass, List<TsType> interfaces, List<TsTypeParam> typeParams) {
 		this.members = new ArrayList<>();
 		this.superclass = Optional.ofNullable(superclass);
 		this.interfaces = interfaces;
+		this.typeParams = typeParams;
+	}
+	
+	public void add(TsMember member) {
+		members.add(member);
 	}
 	
 	@Override

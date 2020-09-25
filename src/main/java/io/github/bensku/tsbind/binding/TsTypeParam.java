@@ -2,7 +2,13 @@ package io.github.bensku.tsbind.binding;
 
 import java.util.Optional;
 
+import io.github.bensku.tsbind.ast.TypeParam;
+
 public class TsTypeParam {
+	
+	public static TsTypeParam fromJava(TypeParam param) {
+		return new TsTypeParam(param.name, param.extend.map(TsType::fromJava).orElse(null));
+	}
 	
 	/**
 	 * Name of type parameter.
@@ -14,7 +20,7 @@ public class TsTypeParam {
 	 */
 	private final Optional<TsType> extendsType;
 	
-	public TsTypeParam(String name, TsType extendsType) {
+	private TsTypeParam(String name, TsType extendsType) {
 		this.name = name;
 		this.extendsType = Optional.ofNullable(extendsType);
 	}

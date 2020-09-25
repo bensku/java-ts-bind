@@ -7,7 +7,7 @@ public class TsField extends TsMember {
 	 */
 	private final TsType type;
 	
-	protected TsField(String name, TsType type) {
+	public TsField(String name, TsType type) {
 		super(name);
 		this.type = type;
 	}

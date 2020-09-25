@@ -2,7 +2,7 @@ package io.github.bensku.tsbind;
 
 import java.util.stream.Stream;
 
-import io.github.bensku.tsbind.ast.Type;
+import io.github.bensku.tsbind.ast.TypeDefinition;
 
 /**
  * Consumes AST to produce e.g. type declarations.
@@ -35,5 +35,5 @@ public interface AstConsumer<T> {
 	 * @param types Stream of types.
 	 * @return Stream of results.
 	 */
-	Stream<Result<T>> consume(Stream<Type> types);
+	Stream<Result<T>> consume(Stream<TypeDefinition> types);
 }

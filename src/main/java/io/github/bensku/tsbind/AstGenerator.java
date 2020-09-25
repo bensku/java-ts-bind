@@ -18,8 +18,7 @@ import com.github.javaparser.resolution.declarations.ResolvedFieldDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedMethodLikeDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedParameterDeclaration;
-import com.github.javaparser.resolution.declarations.ResolvedTypeParameterDeclaration;
-import com.github.javaparser.resolution.types.ResolvedType;
+import com.github.javaparser.resolution.declarations.ResolvedReferenceTypeDeclaration;
 
 import io.github.bensku.tsbind.ast.Constructor;
 import io.github.bensku.tsbind.ast.Field;
@@ -28,8 +27,7 @@ import io.github.bensku.tsbind.ast.Member;
 import io.github.bensku.tsbind.ast.Method;
 import io.github.bensku.tsbind.ast.Parameter;
 import io.github.bensku.tsbind.ast.Setter;
-import io.github.bensku.tsbind.ast.Type;
-import io.github.bensku.tsbind.ast.TypeParam;
+import io.github.bensku.tsbind.ast.TypeDefinition;
 import io.github.bensku.tsbind.ast.TypeRef;
 
 /**
@@ -50,7 +48,7 @@ public class AstGenerator {
 	 * @param source Source unit (single Java file).
 	 * @return Parsed type.
 	 */
-	public Type parseType(SourceUnit source) {
+	public TypeDefinition parseType(SourceUnit source) {
 		ParseResult<CompilationUnit> result = parser.parse(source.code);
 		if (!result.isSuccessful()) {
 			throw new IllegalArgumentException("failed to parse given source code: " + result.getProblems());
@@ -59,31 +57,11 @@ public class AstGenerator {
 		return processType(source.name, unit.findFirst(TypeDeclaration.class).orElseThrow());
 	}
 	
-	private ResolvedType getBaseType(ResolvedType type) {
-		if (type.isArray()) {
-			return getBaseType(type.asArrayType().getComponentType());
-		} else {
-			return type;
-		}
-	}
-	
-	private TypeRef convertType(ResolvedType type) {
-		return new TypeRef(getBaseType(type).describe(), type.arrayLevel());
-	}
-	
-	private TypeParam convertTypeParam(ResolvedTypeParameterDeclaration param) {
-		return new TypeParam(param.getName(), param.hasLowerBound() ? convertType(param.getLowerBound()) : null);
-	}
-	
-	private List<TypeParam> convertTypeParams(List<ResolvedTypeParameterDeclaration> params) {
-		return params.stream().map(this::convertTypeParam).collect(Collectors.toList());
-	}
-	
 	private List<Parameter> getParameters(ResolvedMethodLikeDeclaration method) {
 		List<Parameter> params = new ArrayList<>(method.getNumberOfParams());
 		for (int i = 0; i < method.getNumberOfParams(); i++) {
 			ResolvedParameterDeclaration param = method.getParam(i);
-			params.add(new Parameter(param.getName(), convertType(param.getType())));
+			params.add(new Parameter(param.getName(), TypeRef.fromType(param.getType())));
 		}
 		return params;
 	}
@@ -97,7 +75,7 @@ public class AstGenerator {
 		}).orElse(null);
 	}
 	
-	private Type processType(String typeName, TypeDeclaration<?> type) {
+	private TypeDefinition processType(String typeName, TypeDeclaration<?> type) {
 		List<Member> members = new ArrayList<>();
 		
 		for (BodyDeclaration<?> member : type.getMembers()) {
@@ -111,8 +89,7 @@ public class AstGenerator {
 				if (constructor.accessSpecifier() == AccessSpecifier.PUBLIC) {
 					// Constructor might be generic, but AFAIK TypeScript doesn't support that
 					// (constructors of generic classes are, of course, supported)
-					members.add(new Constructor(constructor.getName(), TypeRef.VOID, getParameters(constructor),
-							Collections.emptyList(), getJavadoc(member)));
+					members.add(new Constructor(constructor.getName(), TypeRef.VOID, getParameters(constructor), getJavadoc(member)));
 				}
 			} else if (member.isMethodDeclaration()) {
 				ResolvedMethodDeclaration method = member.asMethodDeclaration().resolve();
@@ -121,7 +98,7 @@ public class AstGenerator {
 				}
 				
 				String name = method.getName();
-				TypeRef returnType = convertType(method.getReturnType());
+				TypeRef returnType = TypeRef.fromType(method.getReturnType());
 				String methodDoc = getJavadoc(member);
 				boolean override = member.getAnnotationByClass(Override.class).isPresent();
 				// TODO check if GraalJS works with "is" for boolean getter too
@@ -136,19 +113,38 @@ public class AstGenerator {
 				} else { // Normal method
 					// Resolve type parameters and add to member list
 					members.add(new Method(name, returnType, getParameters(method),
-							convertTypeParams(method.getTypeParameters()), methodDoc,
-							method.isStatic(), override));
+							method.getTypeParameters().stream().map(TypeRef::fromDeclaration).collect(Collectors.toList()),
+							methodDoc, method.isStatic(), override));
 				}
 			} else if (member.isFieldDeclaration()) {
 				ResolvedFieldDeclaration field = member.asFieldDeclaration().resolve();
 				if (field.accessSpecifier() == AccessSpecifier.PUBLIC) {
-					members.add(new Field(field.getName(), convertType(field.getType()), getJavadoc(member), field.isStatic()));
+					members.add(new Field(field.getName(), TypeRef.fromType(field.getType()), getJavadoc(member), field.isStatic()));
 				}
 			}
 		}
 		
-		List<TypeParam> typeParams = convertTypeParams(type.resolve().getTypeParameters());
+		// Create definition for the class (includes members create above)
+		TypeDefinition.Kind typeKind;
+		List<TypeRef> superTypes;
+		List<TypeRef> interfaces;
+		if (type.isClassOrInterfaceDeclaration()) {
+			ClassOrInterfaceDeclaration decl = type.asClassOrInterfaceDeclaration();
+			typeKind = decl.isInterface() ? TypeDefinition.Kind.INTERFACE : TypeDefinition.Kind.CLASS;
+			superTypes = decl.getExtendedTypes().stream().map(t
+					-> TypeRef.fromType(t.resolve())).collect(Collectors.toList());
+			interfaces = decl.getImplementedTypes().stream().map(t
+					-> TypeRef.fromType(t.resolve())).collect(Collectors.toList());
+		} else {
+			typeKind = type.isEnumDeclaration() ? TypeDefinition.Kind.ENUM : TypeDefinition.Kind.ANNOTATION;
+			superTypes = Collections.emptyList();
+			interfaces = Collections.emptyList();
+		}
+		ResolvedReferenceTypeDeclaration resolved = type.resolve();
+		
 		String javadoc = getJavadoc(type);
-		return new Type(typeName, members, typeParams, javadoc, type.isStatic());
+		TypeRef ref = TypeRef.fromDeclaration(resolved);
+		return new TypeDefinition(javadoc, type.isStatic(), ref, typeKind,
+				superTypes, interfaces, members);
 	}
 }
