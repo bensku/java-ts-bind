@@ -1,10 +1,9 @@
 package io.github.bensku.tsbind.ast;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import com.github.javaparser.ast.type.Type;
-import com.github.javaparser.resolution.declarations.ResolvedClassDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedReferenceTypeDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedTypeParameterDeclaration;
 import com.github.javaparser.resolution.types.ResolvedArrayType;
@@ -63,20 +62,29 @@ public abstract class TypeRef {
 			return new Array(component, array.arrayLevel());
 		} else if (type.isWildcard()) {
 			if (type.asWildcard().isExtends()) {
-				return new Generic(fromType(type.asWildcard().getBoundedType()));
+				return new Wildcard(fromType(type.asWildcard().getBoundedType()));
 			} else { // We can't describe ? super X in TS (AFAIK)
 				return OBJECT;
 			}
+		} else if (type.isTypeVariable()) {
+			return fromDeclaration(type.asTypeParameter());
 		} else {
 			throw new AssertionError("unexpected type: " + type);
 		}
 	}
 	
-	public static Generic fromDeclaration(ResolvedTypeParameterDeclaration decl) {
-		return new Generic(fromType(decl.getBounds().get(0).getType()));
+	public static TypeRef fromDeclaration(ResolvedTypeParameterDeclaration decl) {
+		if (decl.hasUpperBound()) {
+			return new Parametrized(new Simple(decl.getName()),
+					Collections.singletonList(fromType(decl.getUpperBound())));
+		} else if (decl.hasLowerBound()) { // We can't describe X super Y in TS (AFAIK)
+			return OBJECT;
+		} else {
+			return new Simple(decl.getName());
+		}
 	}
 	
-	public static TypeRef fromDeclaration(ResolvedReferenceTypeDeclaration decl) {
+	public static TypeRef fromDeclaration(String typeName, ResolvedReferenceTypeDeclaration decl) {
 		var typeParams = decl.getTypeParameters();
 		if (typeParams.isEmpty()) {
 			return new Simple(decl.getQualifiedName());
@@ -108,14 +116,14 @@ public abstract class TypeRef {
 		}
 	}
 	
-	public static class Generic extends TypeRef {
+	public static class Wildcard extends TypeRef {
 
 		/**
 		 * Type that this generic parameter must extend.
 		 */
 		private final TypeRef extendedType;
 
-		private Generic(TypeRef extendedType) {
+		private Wildcard(TypeRef extendedType) {
 			this.extendedType = extendedType;
 		}
 

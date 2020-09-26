@@ -1,0 +1,36 @@
+package io.github.bensku.tsbind.cli;
+
+import java.nio.file.Path;
+
+import com.beust.jcommander.Parameter;
+
+import io.github.bensku.tsbind.AstConsumer;
+import io.github.bensku.tsbind.JsonEmitter;
+
+public class Args {
+
+	public enum OutputFormat {
+		JSON(new JsonEmitter());
+		
+		public final AstConsumer<String> consumer;
+		
+		OutputFormat(AstConsumer<String> consumer) {
+			this.consumer = consumer;
+		}
+	}
+	
+	@Parameter(names = "--format")
+	public OutputFormat format = OutputFormat.JSON;
+	
+	@Parameter(names = "--in", required = true)
+	public Path inputPath;
+	
+	@Parameter(names = "--offset")
+	public String offset = "";
+	
+	@Parameter(names = "--include")
+	public String include = ".*";
+	
+	@Parameter(names = "--out")
+	public Path outDir = Path.of("");
+}

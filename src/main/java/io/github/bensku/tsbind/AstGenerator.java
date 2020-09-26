@@ -3,6 +3,7 @@ package io.github.bensku.tsbind;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import com.github.javaparser.JavaParser;
@@ -10,15 +11,20 @@ import com.github.javaparser.ParseResult;
 import com.github.javaparser.ast.AccessSpecifier;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Node;
+import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.BodyDeclaration;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
+import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.TypeDeclaration;
+import com.github.javaparser.ast.body.VariableDeclarator;
+import com.github.javaparser.resolution.declarations.HasAccessSpecifier;
 import com.github.javaparser.resolution.declarations.ResolvedConstructorDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedFieldDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedMethodLikeDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedParameterDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedReferenceTypeDeclaration;
+import com.github.javaparser.resolution.declarations.ResolvedValueDeclaration;
 
 import io.github.bensku.tsbind.ast.Constructor;
 import io.github.bensku.tsbind.ast.Field;
@@ -46,12 +52,14 @@ public class AstGenerator {
 	/**
 	 * Parses type AST from source code.
 	 * @param source Source unit (single Java file).
-	 * @return Parsed type.
+	 * @return Parsed type or empty optional if it is not public.
 	 */
-	public TypeDefinition parseType(SourceUnit source) {
+	public Optional<TypeDefinition> parseType(SourceUnit source) {
 		ParseResult<CompilationUnit> result = parser.parse(source.code);
 		if (!result.isSuccessful()) {
-			throw new IllegalArgumentException("failed to parse given source code: " + result.getProblems());
+			//throw new IllegalArgumentException("failed to parse given source code: " + result.getProblems());
+			System.out.println("failed to parse " + source.name + ": " + result.getProblems());
+			return Optional.empty();
 		}
 		CompilationUnit unit = result.getResult().orElseThrow();
 		return processType(source.name, unit.findFirst(TypeDeclaration.class).orElseThrow());
@@ -75,7 +83,13 @@ public class AstGenerator {
 		}).orElse(null);
 	}
 	
-	private TypeDefinition processType(String typeName, TypeDeclaration<?> type) {
+	private Optional<TypeDefinition> processType(String typeName, TypeDeclaration<?> type) {
+		ResolvedReferenceTypeDeclaration resolved = type.resolve();
+		if (resolved instanceof HasAccessSpecifier
+				&& ((HasAccessSpecifier) resolved).accessSpecifier() != AccessSpecifier.PUBLIC) {
+			return Optional.empty();
+		}
+		
 		List<Member> members = new ArrayList<>();
 		
 		for (BodyDeclaration<?> member : type.getMembers()) {
@@ -83,7 +97,7 @@ public class AstGenerator {
 			if (member.isClassOrInterfaceDeclaration()) {
 				// Recursively process an inner type
 				ClassOrInterfaceDeclaration inner = member.asClassOrInterfaceDeclaration();
-				members.add(processType(typeName + "." + inner.getNameAsString(), inner));
+				processType(typeName + "." + inner.getNameAsString(), inner).ifPresent(members::add);
 			} else if (member.isConstructorDeclaration()) {
 				ResolvedConstructorDeclaration constructor = member.asConstructorDeclaration().resolve();
 				if (constructor.accessSpecifier() == AccessSpecifier.PUBLIC) {
@@ -102,11 +116,11 @@ public class AstGenerator {
 				String methodDoc = getJavadoc(member);
 				boolean override = member.getAnnotationByClass(Override.class).isPresent();
 				// TODO check if GraalJS works with "is" for boolean getter too
-				if (name.startsWith("get") && !method.getReturnType().isVoid()
+				if (name.length() > 3 && name.startsWith("get") && !method.getReturnType().isVoid()
 						&& method.getNumberOfParams() == 0 && method.getTypeParameters().isEmpty()) {
 					// GraalJS will make this getter work, somehow
 					members.add(new Getter(name, returnType, methodDoc, override));
-				} else if (name.startsWith("set") && method.getReturnType().isVoid()
+				} else if (name.length() > 4 && name.startsWith("set") && method.getReturnType().isVoid()
 						&& method.getNumberOfParams() == 1 && method.getTypeParameters().isEmpty()) {
 					// GraalJS will make this setter work, somehow
 					members.add(new Setter(name, returnType, methodDoc, override));
@@ -117,9 +131,23 @@ public class AstGenerator {
 							methodDoc, method.isStatic(), override));
 				}
 			} else if (member.isFieldDeclaration()) {
-				ResolvedFieldDeclaration field = member.asFieldDeclaration().resolve();
-				if (field.accessSpecifier() == AccessSpecifier.PUBLIC) {
-					members.add(new Field(field.getName(), TypeRef.fromType(field.getType()), getJavadoc(member), field.isStatic()));
+				FieldDeclaration field = member.asFieldDeclaration();
+				NodeList<VariableDeclarator> vars = field.getVariables();
+				if (vars.size() == 1) {
+					ResolvedFieldDeclaration resolvedField = field.resolve();
+					if (resolvedField.accessSpecifier() == AccessSpecifier.PUBLIC) {
+						members.add(new Field(resolvedField.getName(), TypeRef.fromType(resolvedField.getType()),
+								getJavadoc(member), field.isStatic()));
+					}
+				} else { // Symbol solver can't resolve this for us
+					// We'll have to do with less reliable (unresolved) access specifier
+					if (field.getAccessSpecifier() == AccessSpecifier.PUBLIC) {
+						for (VariableDeclarator var : vars) {
+							ResolvedValueDeclaration resolvedVar = var.resolve();
+							members.add(new Field(resolvedVar.getName(), TypeRef.fromType(resolvedVar.getType()),
+									getJavadoc(member), field.isStatic()));
+						}
+					}
 				}
 			}
 		}
@@ -140,11 +168,10 @@ public class AstGenerator {
 			superTypes = Collections.emptyList();
 			interfaces = Collections.emptyList();
 		}
-		ResolvedReferenceTypeDeclaration resolved = type.resolve();
 		
 		String javadoc = getJavadoc(type);
-		TypeRef ref = TypeRef.fromDeclaration(resolved);
-		return new TypeDefinition(javadoc, type.isStatic(), ref, typeKind,
-				superTypes, interfaces, members);
+		TypeRef ref = TypeRef.fromDeclaration(typeName, resolved);
+		return Optional.of(new TypeDefinition(javadoc, type.isStatic(), ref, typeKind,
+				superTypes, interfaces, members));
 	}
 }
