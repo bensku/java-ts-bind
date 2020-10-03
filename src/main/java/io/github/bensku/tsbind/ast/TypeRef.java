@@ -10,7 +10,7 @@ import com.github.javaparser.resolution.types.ResolvedArrayType;
 import com.github.javaparser.resolution.types.ResolvedReferenceType;
 import com.github.javaparser.resolution.types.ResolvedType;
 
-public abstract class TypeRef {
+public abstract class TypeRef implements AstNode {
 	
 	public static final Simple OBJECT = new Simple("java.lang.Object");
 	public static final Simple VOID = new Simple("void");
@@ -170,6 +170,10 @@ public abstract class TypeRef {
 			return 0;
 		}
 		
+		public TypeRef baseType() {
+			return baseType;
+		}
+		
 		public List<TypeRef> typeParams() {
 			return params;
 		}
@@ -195,6 +199,10 @@ public abstract class TypeRef {
 		@Override
 		public String name() {
 			return component.name() + "[]".repeat(dimensions);
+		}
+		
+		public TypeRef componentType() {
+			return component;
 		}
 
 		@Override

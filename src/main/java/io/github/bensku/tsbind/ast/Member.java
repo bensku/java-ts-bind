@@ -2,7 +2,7 @@ package io.github.bensku.tsbind.ast;
 
 import java.util.Optional;
 
-public abstract class Member {
+public abstract class Member implements AstNode {
 
 	/**
 	 * Javadoc of this member, if it exists.

@@ -23,7 +23,7 @@ public interface AstConsumer<T> {
 		 */
 		public final T result;
 
-		protected Result(String name, T result) {
+		public Result(String name, T result) {
 			this.name = name;
 			this.result = result;
 		}

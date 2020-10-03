@@ -17,7 +17,7 @@ import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.body.VariableDeclarator;
-import com.github.javaparser.resolution.declarations.HasAccessSpecifier;
+import com.github.javaparser.ast.nodeTypes.NodeWithModifiers;
 import com.github.javaparser.resolution.declarations.ResolvedConstructorDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedFieldDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration;
@@ -62,7 +62,12 @@ public class AstGenerator {
 			return Optional.empty();
 		}
 		CompilationUnit unit = result.getResult().orElseThrow();
-		return processType(source.name, unit.findFirst(TypeDeclaration.class).orElseThrow());
+		TypeDeclaration<?> type = unit.findFirst(TypeDeclaration.class).orElseThrow();
+		if (type.getAccessSpecifier() == AccessSpecifier.PUBLIC) {
+			return processType(source.name, type);			
+		} else {
+			return Optional.empty();
+		}
 	}
 	
 	private List<Parameter> getParameters(ResolvedMethodLikeDeclaration method) {
@@ -85,14 +90,16 @@ public class AstGenerator {
 	
 	private Optional<TypeDefinition> processType(String typeName, TypeDeclaration<?> type) {
 		ResolvedReferenceTypeDeclaration resolved = type.resolve();
-		if (resolved instanceof HasAccessSpecifier
-				&& ((HasAccessSpecifier) resolved).accessSpecifier() != AccessSpecifier.PUBLIC) {
-			return Optional.empty();
-		}
+		boolean isInterface = resolved.isInterface();
 		
 		List<Member> members = new ArrayList<>();
 		
 		for (BodyDeclaration<?> member : type.getMembers()) {
+			if (!isInterface && member instanceof NodeWithModifiers &&
+					((NodeWithModifiers<?>) member).getAccessSpecifier() != AccessSpecifier.PUBLIC) {
+				continue; // Neither implicitly or explicitly public
+			}
+			
 			// Process type depending on what it is
 			if (member.isClassOrInterfaceDeclaration()) {
 				// Recursively process an inner type
@@ -107,9 +114,6 @@ public class AstGenerator {
 				}
 			} else if (member.isMethodDeclaration()) {
 				ResolvedMethodDeclaration method = member.asMethodDeclaration().resolve();
-				if (method.accessSpecifier() != AccessSpecifier.PUBLIC) {
-					continue;
-				}
 				
 				String name = method.getName();
 				TypeRef returnType = TypeRef.fromType(method.getReturnType());
@@ -135,18 +139,13 @@ public class AstGenerator {
 				NodeList<VariableDeclarator> vars = field.getVariables();
 				if (vars.size() == 1) {
 					ResolvedFieldDeclaration resolvedField = field.resolve();
-					if (resolvedField.accessSpecifier() == AccessSpecifier.PUBLIC) {
-						members.add(new Field(resolvedField.getName(), TypeRef.fromType(resolvedField.getType()),
-								getJavadoc(member), field.isStatic()));
-					}
+					members.add(new Field(resolvedField.getName(), TypeRef.fromType(resolvedField.getType()),
+							getJavadoc(member), field.isStatic()));
 				} else { // Symbol solver can't resolve this for us
-					// We'll have to do with less reliable (unresolved) access specifier
-					if (field.getAccessSpecifier() == AccessSpecifier.PUBLIC) {
-						for (VariableDeclarator var : vars) {
-							ResolvedValueDeclaration resolvedVar = var.resolve();
-							members.add(new Field(resolvedVar.getName(), TypeRef.fromType(resolvedVar.getType()),
-									getJavadoc(member), field.isStatic()));
-						}
+					for (VariableDeclarator var : vars) {
+						ResolvedValueDeclaration resolvedVar = var.resolve();
+						members.add(new Field(resolvedVar.getName(), TypeRef.fromType(resolvedVar.getType()),
+								getJavadoc(member), field.isStatic()));
 					}
 				}
 			}

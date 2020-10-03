@@ -2,59 +2,50 @@ package io.github.bensku.tsbind.binding;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
 
-public class TsClass implements TsElement {
+import io.github.bensku.tsbind.ast.TypeDefinition;
+import io.github.bensku.tsbind.ast.TypeRef;
 
-	/**
-	 * Member fields and methods of this class.
-	 */
-	private final List<TsMember> members;
+public class TsClass implements TsGenerator<TypeDefinition> {
+
+	public static final TsClass INSTANCE = new TsClass();
 	
-	/**
-	 * Superclass in TypeScript.
-	 */
-	private final Optional<TsType> superclass;
+	private TsClass() {}
 	
-	/**
-	 * Interfaces in TypeScript. While all Java interfaces are declared as
-	 * TS classes, they are always used with 'implements' - even when
-	 * 'extends' would be used for interfaces extending each other in Java.
-	 */
-	private final List<TsType> interfaces;
-	
-	/**
-	 * Type parameters.
-	 */
-	private final List<TsTypeParam> typeParams;
-	
-	public TsClass(TsType superclass, List<TsType> interfaces, List<TsTypeParam> typeParams) {
-		this.members = new ArrayList<>();
-		this.superclass = Optional.ofNullable(superclass);
-		this.interfaces = interfaces;
-		this.typeParams = typeParams;
-	}
-	
-	public void add(TsMember member) {
-		members.add(member);
+	private void emitName(TypeRef type, TsEmitter out) {
+		// Need specialized handling, because we DON'T want package name here
+		out.print(type.simpleName());
+		if (type instanceof TypeRef.Parametrized) {
+			out.print("<").print(((TypeRef.Parametrized) type).typeParams(), ", ").print(">");
+		}
 	}
 	
 	@Override
-	public void emit(TsEmitter out) {
+	public void emit(TypeDefinition node, TsEmitter out) {
 		// Class declaration, including superclass and interfaces
-		out.print("declare export class %s ");
-		superclass.ifPresent(sup -> out.print("extends %s ", sup));
-		if (!interfaces.isEmpty()) {
-			out.print("implements %s ", interfaces.stream().map(TsType::toString).collect(Collectors.joining(", ")));
+		out.print("declare export class ");
+		emitName(node.ref, out);
+		if (node.superTypes.size() == 1) { // Exactly 1 superclass -> TS extends
+			out.print(" extends %s", node.superTypes.get(0));
+			out.print(" implements ");
+			out.print(node.interfaces, ", ");
+		} else { // Interfaces can have many superclasses
+			// We declare only classes because TS interfaces are VERY different from Java
+			// Just changing extends -> implements looks strange, but should be safe
+			List<TypeRef> tsInterfaces = new ArrayList<>(node.superTypes);
+			tsInterfaces.addAll(node.interfaces);
+			if (!tsInterfaces.isEmpty()) {
+				out.print(" implements ");
+				out.print(tsInterfaces, ", ");
+			}
 		}
-		out.println("{");
+		out.println(" {");
 		
 		// Emit class members with some indentation
 		try (var none = out.indent()) {
-			members.forEach(member -> member.emit(out));
+			out.print(node.members, "\n");
 		}
-		out.println("}");
+		out.println("\n}");
 	}
 
 }

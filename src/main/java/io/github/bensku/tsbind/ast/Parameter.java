@@ -1,6 +1,6 @@
 package io.github.bensku.tsbind.ast;
 
-public class Parameter {
+public class Parameter implements AstNode {
 	
 	/**
 	 * Name of the parameter.
