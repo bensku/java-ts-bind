@@ -20,18 +20,38 @@ public class BindingGenerator implements AstConsumer<String> {
 		
 		types.forEach(type -> addType(modules, type));
 		
-		// Put everything to single declaration
-		StringBuilder sb = new StringBuilder();
+		// Put modules in declarations based on their base packages (tld.domain)
+		Map<String, StringBuilder> outputs = new HashMap<>();
 		for (TsModule module : modules.values()) {
-			module.write(sb);
+			String basePkg = getBasePkg(module.name()).replace('.', '_');
+			StringBuilder out = outputs.computeIfAbsent(basePkg, key -> new StringBuilder());
+			module.write(out);
 		}
-		return Stream.of(new Result<>("types.d.ts", sb.toString()));
+		return outputs.entrySet().stream().map(entry
+				-> new Result<>(entry.getKey() + ".d.ts", entry.getValue().toString()));
+	}
+	
+	private String getBasePkg(String name) {
+		int tld = name.indexOf('.');
+		if (tld == -1) {
+			return name; // Default package?
+		}
+		int domain = name.indexOf('.', tld + 1);
+		if (domain == -1) {
+			return name; // Already base package
+		}
+		return name.substring(0, domain);
 	}
 	
 	private void addType(Map<String, TsModule> modules, TypeDefinition type) {
 		// Get module for package the class is in, creating if needed
 		TsModule module = modules.computeIfAbsent(getModuleName(type.ref), TsModule::new);
 		module.emitter().print(type);
+		
+		// Fake inner classes with TS modules
+		// Nested types in TS are quite different from Java, so we can't use them
+		type.members.stream().filter(member -> (member instanceof TypeDefinition))
+				.forEach(innerType -> addType(modules, (TypeDefinition) innerType));
 	}
 	
 	private String getModuleName(TypeRef type) {

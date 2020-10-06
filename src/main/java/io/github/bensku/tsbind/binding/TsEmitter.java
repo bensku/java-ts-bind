@@ -33,11 +33,17 @@ public class TsEmitter {
 	 */
 	private int indentLevel;
 	
+	/**
+	 * Cached current indentation (for performance).
+	 */
+	private String indentStr;
+	
 	public class Indenter implements AutoCloseable {
 
 		@Override
 		public void close() {
 			indentLevel--;
+			indentStr = indentation.repeat(indentLevel);
 		}
 		
 	}
@@ -61,6 +67,7 @@ public class TsEmitter {
 		this.output = new StringBuilder();
 		this.indentation = indentation;
 		this.indenter = new Indenter();
+		this.indentStr = "";
 		this.imports = new HashSet<>();
 		this.generators = new HashMap<>();
 		registerGenerators();
@@ -87,6 +94,7 @@ public class TsEmitter {
 	
 	public Indenter indent() {
 		indentLevel++;
+		indentStr = indentation.repeat(indentLevel);
 		return indenter;
 	}
 	
@@ -139,9 +147,7 @@ public class TsEmitter {
 	}
 	
 	public TsEmitter println(AstNode node) {
-		output.append(indentation.repeat(indentLevel));
-		print(node);
-		output.append('\n');
+		print(indentStr).print(node).print("\n");
 		return this;
 	}
 	
@@ -149,17 +155,28 @@ public class TsEmitter {
 		boolean indent = delimiter.equals("\n");
 		for (int i = 0; i < list.size() - 1; i++) {
 			if (indent) {
-				output.append(indentation.repeat(indentLevel));
+				print(indentStr);
 			}
 			print(list.get(i));
 			output.append(delimiter);
 		}
 		if (!list.isEmpty()) {
 			if (indent) {
-				output.append(indentation.repeat(indentLevel));
+				print(indentStr);
 			}
 			print(list.get(list.size() - 1));
 		}
+		return this;
+	}
+	
+	private void javadocContent(String line) {
+		print(indentStr).print(" ").println(line);
+	}
+	
+	public TsEmitter javadoc(String doc) {
+		print(indentStr).println("/**");
+		doc.lines().map(String::stripLeading).filter(line -> !line.isEmpty()).forEach(this::javadocContent);
+		print(indentStr).println("*/");
 		return this;
 	}
 	

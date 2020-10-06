@@ -24,6 +24,10 @@ public class TsModule {
 		this.emitter = new TsEmitter("  ");
 	}
 	
+	public String name() {
+		return name;
+	}
+	
 	public TsEmitter emitter() {
 		return emitter;
 	}
