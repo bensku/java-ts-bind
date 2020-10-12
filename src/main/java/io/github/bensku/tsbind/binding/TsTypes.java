@@ -13,6 +13,12 @@ public class TsTypes {
 			// Closest TS type of most primitives is number
 			// FIXME GraalJS can't implicitly convert between all of these
 			out.print("number");
+		} else if (node == TypeRef.STRING) {
+			out.print("string");
+		} else if (node == TypeRef.OBJECT) {
+			// Allow autoboxing JS boolean and number to Object
+			// Also helps with generic inheritance
+			out.print("any");
 		} else {
 			out.print(node.name().replace('.', '_'));
 			if (node.name().contains(".")) { // Probably needs to be imported

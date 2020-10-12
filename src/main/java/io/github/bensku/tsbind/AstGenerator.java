@@ -101,9 +101,9 @@ public class AstGenerator {
 			}
 			
 			// Process type depending on what it is
-			if (member.isClassOrInterfaceDeclaration()) {
+			if (member.isTypeDeclaration()) {
 				// Recursively process an inner type
-				ClassOrInterfaceDeclaration inner = member.asClassOrInterfaceDeclaration();
+				TypeDeclaration<?> inner = member.asTypeDeclaration();
 				processType(typeName + "." + inner.getNameAsString(), inner).ifPresent(members::add);
 			} else if (member.isConstructorDeclaration()) {
 				ResolvedConstructorDeclaration constructor = member.asConstructorDeclaration().resolve();
@@ -127,7 +127,7 @@ public class AstGenerator {
 				} else if (name.length() > 4 && name.startsWith("set") && method.getReturnType().isVoid()
 						&& method.getNumberOfParams() == 1 && method.getTypeParameters().isEmpty()) {
 					// GraalJS will make this setter work, somehow
-					members.add(new Setter(name, returnType, methodDoc, override));
+					members.add(new Setter(name, TypeRef.fromType(method.getParam(0).getType()), methodDoc, override));
 				} else { // Normal method
 					// Resolve type parameters and add to member list
 					members.add(new Method(name, returnType, getParameters(method),

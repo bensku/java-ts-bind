@@ -13,9 +13,9 @@ public class TsClass implements TsGenerator<TypeDefinition> {
 	
 	private TsClass() {}
 	
-	private void emitName(TypeRef type, TsEmitter out) {
+	private void emitName(String name, TypeRef type, TsEmitter out) {
 		// Need specialized handling, because we DON'T want package name here
-		out.print(type.simpleName());
+		out.print(name);
 		if (type instanceof TypeRef.Parametrized) {
 			out.print("<").print(((TypeRef.Parametrized) type).typeParams(), ", ").print(">");
 		}
@@ -25,32 +25,49 @@ public class TsClass implements TsGenerator<TypeDefinition> {
 	public void emit(TypeDefinition node, TsEmitter out) {
 		node.javadoc.ifPresent(out::javadoc);
 		// Class declaration, including superclass and interfaces
-		out.print("declare export class ");
-		emitName(node.ref, out);
-		if (node.superTypes.size() == 1) { // Exactly 1 superclass -> TS extends
-			out.print(" extends %s", node.superTypes.get(0));
-			if (!node.interfaces.isEmpty()) {
-				out.print(" implements ");
-				out.print(node.interfaces, ", ");
+		
+		// We can't use TS 'implements', because TS interfaces
+		// don't support e.g getters/setters
+		// Instead, we translate Java implements to TS extends
+		List<TypeRef> superTypes = new ArrayList<>(node.superTypes);
+		superTypes.addAll(node.interfaces);
+		boolean mixinTrick = false;
+		if (superTypes.size() < 2) { // At most one superclass/interface
+			out.print("export class ");
+			emitName(node.ref.simpleName(), node.ref, out);
+			if (!superTypes.isEmpty()) {
+				out.print(" extends %s", superTypes.get(0));
 			}
-		} else { // Interfaces can have many superclasses
-			// We declare only classes because TS interfaces are VERY different from Java
-			// Just changing extends -> implements looks strange, but should be safe
-			List<TypeRef> tsInterfaces = new ArrayList<>(node.superTypes);
-			tsInterfaces.addAll(node.interfaces);
-			if (!tsInterfaces.isEmpty()) {
-				out.print(" implements ");
-				out.print(tsInterfaces, ", ");
-			}
+		} else { // More than one superclass/interface
+			// Emit class content as hidden (not exported) class to be extended by mixin
+			out.print("class ");
+			emitName(node.ref.simpleName() + "_Impl", node.ref, out);
+			mixinTrick = true; // Emit mixin after class declaration
 		}
 		out.println(" {");
 		
 		// Emit class members with some indentation
 		try (var none = out.startBlock()) {
 			// TODO use stream for printing to avoid unnecessary list creation in hot path
-			out.print(node.members.stream().filter(member -> !(member instanceof TypeDefinition)).collect(Collectors.toList()), "\n");
+			out.print(node.members.stream()
+					.filter(member -> !(member instanceof TypeDefinition))
+					.collect(Collectors.toList()), "\n");
 		}
 		out.println("\n}");
+		
+		// Emit supertypes/interfaces as mixin interface+class
+		if (mixinTrick) {
+			out.print("export interface ");
+			emitName(node.ref.simpleName(), node.ref, out);
+			out.print(" extends ");
+			emitName(node.ref.simpleName() + "_Impl", node.ref, out);
+			out.print(", ");
+			out.print(superTypes, ", ");
+			out.println("{}");
+			out.print("export class ");
+			emitName(node.ref.simpleName(), node.ref, out);
+			out.println(" {}");
+		}
 	}
 
 }

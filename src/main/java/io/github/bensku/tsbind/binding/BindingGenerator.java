@@ -1,7 +1,9 @@
 package io.github.bensku.tsbind.binding;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import io.github.bensku.tsbind.AstConsumer;
@@ -14,6 +16,21 @@ import io.github.bensku.tsbind.ast.TypeRef;
  */
 public class BindingGenerator implements AstConsumer<String> {
 
+	private static final Set<TypeRef> EXCLUDED = new HashSet<>();
+	
+	static {
+		EXCLUDED.add(TypeRef.BOOLEAN);
+		EXCLUDED.add(TypeRef.BYTE);
+		EXCLUDED.add(TypeRef.SHORT);
+		EXCLUDED.add(TypeRef.CHAR);
+		EXCLUDED.add(TypeRef.INT);
+		EXCLUDED.add(TypeRef.LONG);
+		EXCLUDED.add(TypeRef.FLOAT);
+		EXCLUDED.add(TypeRef.DOUBLE);
+		EXCLUDED.add(TypeRef.STRING);
+		EXCLUDED.add(TypeRef.OBJECT);
+	}
+	
 	@Override
 	public Stream<Result<String>> consume(Stream<TypeDefinition> types) {
 		Map<String, TsModule> modules = new HashMap<>();
@@ -44,6 +61,10 @@ public class BindingGenerator implements AstConsumer<String> {
 	}
 	
 	private void addType(Map<String, TsModule> modules, TypeDefinition type) {
+		if (EXCLUDED.contains(type.ref)) {
+			return; // Don't generate this type
+		}
+		
 		// Get module for package the class is in, creating if needed
 		TsModule module = modules.computeIfAbsent(getModuleName(type.ref), TsModule::new);
 		module.emitter().print(type);

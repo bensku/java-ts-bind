@@ -12,7 +12,6 @@ import com.github.javaparser.resolution.types.ResolvedType;
 
 public abstract class TypeRef implements AstNode {
 	
-	public static final Simple OBJECT = new Simple("java.lang.Object");
 	public static final Simple VOID = new Simple("void");
 	public static final Simple BOOLEAN = new Simple("boolean");
 	public static final Simple BYTE = new Simple("byte");
@@ -22,6 +21,9 @@ public abstract class TypeRef implements AstNode {
 	public static final Simple LONG = new Simple("long");
 	public static final Simple FLOAT = new Simple("float");
 	public static final Simple DOUBLE = new Simple("double");
+	
+	public static final Simple OBJECT = new Simple("java.lang.Object");
+	public static final Simple STRING =  new Simple("java.lang.String");
 	
 	public static TypeRef fromType(ResolvedType type) {
 		if (type.isVoid()) {
@@ -51,10 +53,10 @@ public abstract class TypeRef implements AstNode {
 			ResolvedReferenceType reference = type.asReferenceType();
 			List<ResolvedType> typeParams = reference.typeParametersValues();
 			if (typeParams.isEmpty()) { // No generic type parameters
-				return new Simple(reference.getQualifiedName());
+				return getSimpleType(reference.getQualifiedName());
 			} else {
 				List<TypeRef> params = typeParams.stream().map(TypeRef::fromType).collect(Collectors.toList());
-				return new Parametrized(new Simple(reference.getQualifiedName()), params);
+				return new Parametrized(getSimpleType(reference.getQualifiedName()), params);
 			}
 		} else if (type.isArray()) {
 			ResolvedArrayType array = type.asArrayType();
@@ -73,24 +75,49 @@ public abstract class TypeRef implements AstNode {
 		}
 	}
 	
+	private static Simple getSimpleType(String name) {
+		switch (name) {
+		case "java.lang.Byte":
+			return BYTE;
+		case "java.lang.Short":
+			return SHORT;
+		case "java.lang.Character":
+			return CHAR;
+		case "java.lang.Integer":
+			return INT;
+		case "java.lang.Long":
+			return LONG;
+		case "java.lang.Float":
+			return FLOAT;
+		case "java.lang.Double":
+			return DOUBLE;
+		case "java.lang.Object":
+			return OBJECT;
+		case "java.lang.String":
+			return STRING;
+		default:
+			return new Simple(name);
+		}
+	}
+	
 	public static TypeRef fromDeclaration(ResolvedTypeParameterDeclaration decl) {
 		if (decl.hasUpperBound()) {
 			return new Parametrized(new Simple(decl.getName()),
 					Collections.singletonList(fromType(decl.getUpperBound())));
-		} else if (decl.hasLowerBound()) { // We can't describe X super Y in TS (AFAIK)
+		} else if (decl.hasUpperBound()) { // We can't describe X super Y in TS (AFAIK)
 			return OBJECT;
 		} else {
-			return new Simple(decl.getName());
+			return getSimpleType(decl.getName());
 		}
 	}
 	
 	public static TypeRef fromDeclaration(String typeName, ResolvedReferenceTypeDeclaration decl) {
 		var typeParams = decl.getTypeParameters();
 		if (typeParams.isEmpty()) {
-			return new Simple(decl.getQualifiedName());
+			return getSimpleType(decl.getQualifiedName());
 		} else {
 			List<TypeRef> params = typeParams.stream().map(TypeRef::fromDeclaration).collect(Collectors.toList());
-			return new Parametrized(new Simple(decl.getQualifiedName()), params);
+			return new Parametrized(getSimpleType(decl.getQualifiedName()), params);
 		}
 	}
 		

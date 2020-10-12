@@ -24,7 +24,19 @@ public class TsMembers {
 	};
 	
 	public static final TsGenerator<Parameter> PARAMETER = (node, out) -> {
-		out.print("%s: %s", node.name, node.type);
+		String name;
+		// Replace TS/JS reserved keywords that are common parameter names in Java
+		switch (node.name) {
+			case "function":
+				name = "func";
+				break;
+			case "in":
+				name = "input";
+				break;
+			default:
+				name = node.name;
+		}
+		out.print("%s: %s", name, node.type);
 	};
 	
 	public static final TsGenerator<Method> METHOD = (node, out) -> {
@@ -66,6 +78,6 @@ public class TsMembers {
 	
 	public static final TsGenerator<Setter> SETTER = (node, out) -> {
 		node.javadoc.ifPresent(out::javadoc);
-		out.indent().print("set %s(%s): void;", node.name, node.params.get(0));
+		out.indent().print("set %s(%s);", node.name, node.params.get(0));
 	};
 }
