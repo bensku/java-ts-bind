@@ -92,7 +92,7 @@ public class TsEmitter {
 		addGenerator(Setter.class, TsMembers.SETTER);
 	}
 	
-	public Indenter indent() {
+	public Indenter startBlock() {
 		indentLevel++;
 		indentStr = indentation.repeat(indentLevel);
 		return indenter;
@@ -104,6 +104,11 @@ public class TsEmitter {
 	
 	public TsEmitter print(String str) {
 		output.append(str);
+		return this;
+	}
+	
+	public TsEmitter indent() {
+		print(indentStr);
 		return this;
 	}
 	
@@ -152,31 +157,24 @@ public class TsEmitter {
 	}
 	
 	public TsEmitter print(List<? extends AstNode> list, String delimiter) {
-		boolean indent = delimiter.equals("\n");
 		for (int i = 0; i < list.size() - 1; i++) {
-			if (indent) {
-				print(indentStr);
-			}
 			print(list.get(i));
 			output.append(delimiter);
 		}
 		if (!list.isEmpty()) {
-			if (indent) {
-				print(indentStr);
-			}
 			print(list.get(list.size() - 1));
 		}
 		return this;
 	}
 	
 	private void javadocContent(String line) {
-		print(indentStr).print(" ").println(line);
+		indent().print(" ").println(line);
 	}
 	
 	public TsEmitter javadoc(String doc) {
-		print(indentStr).println("/**");
+		indent().println("/**");
 		doc.lines().map(String::stripLeading).filter(line -> !line.isEmpty()).forEach(this::javadocContent);
-		print(indentStr).println("*/");
+		indent().println("*/");
 		return this;
 	}
 	

@@ -46,7 +46,7 @@ public class TsClass implements TsGenerator<TypeDefinition> {
 		out.println(" {");
 		
 		// Emit class members with some indentation
-		try (var none = out.indent()) {
+		try (var none = out.startBlock()) {
 			// TODO use stream for printing to avoid unnecessary list creation in hot path
 			out.print(node.members.stream().filter(member -> !(member instanceof TypeDefinition)).collect(Collectors.toList()), "\n");
 		}

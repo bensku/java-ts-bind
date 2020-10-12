@@ -16,6 +16,7 @@ public class TsMembers {
 
 	public static final TsGenerator<Field> FIELD = (node, out) -> {
 		node.javadoc.ifPresent(out::javadoc);
+		out.indent();
 		if (node.isStatic) {
 			out.print("static ");
 		}
@@ -32,6 +33,7 @@ public class TsMembers {
 		}
 		
 		node.javadoc.ifPresent(out::javadoc);
+		out.indent();
 		if (node.isStatic) { // 'static' modified is roughly same in TS and Java
 			out.print("static ");
 		}
@@ -54,18 +56,16 @@ public class TsMembers {
 	
 	public static final TsGenerator<Constructor> CONSTRUCTOR = (node, out) -> {
 		node.javadoc.ifPresent(out::javadoc);
-		out.print("constructor(");
-		out.print(node.params, ", ");
-		out.print(");");
+		out.indent().print("constructor(").print(node.params, ", ").print(");");
 	};
 	
 	public static final TsGenerator<Getter> GETTER = (node, out) -> {
 		node.javadoc.ifPresent(out::javadoc);
-		out.print("get %s(): %s;", node.name, node.returnType);
+		out.indent().print("get %s(): %s;", node.name, node.returnType);
 	};
 	
 	public static final TsGenerator<Setter> SETTER = (node, out) -> {
 		node.javadoc.ifPresent(out::javadoc);
-		out.print("set %s(%s): void;", node.name, node.params.get(0));
+		out.indent().print("set %s(%s): void;", node.name, node.params.get(0));
 	};
 }
