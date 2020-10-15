@@ -40,7 +40,8 @@ public class TsMembers {
 	};
 	
 	public static final TsGenerator<Method> METHOD = (node, out) -> {
-		if (node.isOverride && !node.javadoc.isPresent()) {
+		if (node.isOverride 
+				&& (!node.javadoc.isPresent() || node.javadoc.orElseThrow().contains("{@inheritDoc}"))) {
 			return; // Method inherited, no need to specify again
 		}
 		
