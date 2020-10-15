@@ -1,5 +1,7 @@
 package io.github.bensku.tsbind.ast;
 
+import java.util.function.Consumer;
+
 public class Parameter implements AstNode {
 	
 	/**
@@ -15,6 +17,12 @@ public class Parameter implements AstNode {
 	public Parameter(String name, TypeRef type) {
 		this.name = name;
 		this.type = type;
+	}
+
+	@Override
+	public void walk(Consumer<AstNode> visitor) {
+		visitor.accept(this);
+		type.walk(visitor);
 	}
 
 }

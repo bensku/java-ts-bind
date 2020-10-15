@@ -2,6 +2,7 @@ package io.github.bensku.tsbind.ast;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import com.github.javaparser.resolution.declarations.ResolvedReferenceTypeDeclaration;
@@ -140,10 +141,33 @@ public abstract class TypeRef implements AstNode {
 		public String name() {
 			return name;
 		}
+		
+		@Override
+		public TypeRef baseType() {
+			return this; // Base of most types
+		}
 
 		@Override
 		public int arrayDimensions() {
 			return 0;
+		}
+		
+		@Override
+		public void walk(Consumer<AstNode> visitor) {
+			visitor.accept(this);
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (!(obj instanceof Simple)) {
+				return false;
+			}
+			return ((Simple) obj).name.equals(this.name);
+		}
+
+		@Override
+		public int hashCode() {
+			return name.hashCode();
 		}
 	}
 	
@@ -162,6 +186,11 @@ public abstract class TypeRef implements AstNode {
 		public String name() {
 			return "*";
 		}
+		
+		@Override
+		public TypeRef baseType() {
+			return this; // Extended type is definitely not base type
+		}
 
 		@Override
 		public int arrayDimensions() {
@@ -170,6 +199,25 @@ public abstract class TypeRef implements AstNode {
 		
 		public TypeRef extendedType() {
 			return extendedType;
+		}
+		
+		@Override
+		public void walk(Consumer<AstNode> visitor) {
+			visitor.accept(this);
+			extendedType.walk(visitor);
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (!(obj instanceof Wildcard)) {
+				return false;
+			}
+			return ((Wildcard) obj).extendedType.equals(this.extendedType);
+		}
+
+		@Override
+		public int hashCode() {
+			return extendedType.hashCode();
 		}
 		
 	}
@@ -195,18 +243,40 @@ public abstract class TypeRef implements AstNode {
 		public String name() {
 			return baseType.name();
 		}
+		
+		@Override
+		public TypeRef baseType() {
+			return baseType.baseType();
+		}
 
 		@Override
 		public int arrayDimensions() {
 			return 0;
 		}
 		
-		public TypeRef baseType() {
-			return baseType;
-		}
-		
 		public List<TypeRef> typeParams() {
 			return params;
+		}
+		
+		@Override
+		public void walk(Consumer<AstNode> visitor) {
+			visitor.accept(this);
+			baseType.walk(visitor);
+			params.forEach(param -> param.walk(visitor));
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (!(obj instanceof Parametrized)) {
+				return false;
+			}
+			Parametrized o = (Parametrized) obj;
+			return o.baseType.equals(this.baseType) && o.params.equals(this.params);
+		}
+
+		@Override
+		public int hashCode() {
+			return baseType.hashCode() + 31 * params.hashCode();
 		}
 	}
 	
@@ -232,13 +302,34 @@ public abstract class TypeRef implements AstNode {
 			return component.name() + "[]".repeat(dimensions);
 		}
 		
-		public TypeRef componentType() {
-			return component;
+		@Override
+		public TypeRef baseType() {
+			return component.baseType();
 		}
 
 		@Override
 		public int arrayDimensions() {
 			return dimensions;
+		}
+		
+		@Override
+		public void walk(Consumer<AstNode> visitor) {
+			visitor.accept(this);
+			component.walk(visitor);
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (!(obj instanceof Array)) {
+				return false;
+			}
+			Array o = (Array) obj;
+			return o.component.equals(this.component) && o.dimensions == this.dimensions;
+		}
+
+		@Override
+		public int hashCode() {
+			return component.hashCode() + 31 * dimensions;
 		}
 		
 		
@@ -251,10 +342,18 @@ public abstract class TypeRef implements AstNode {
 		return name.substring(name.lastIndexOf('.') + 1);
 	}
 	
+	public abstract TypeRef baseType();
+	
 	public abstract int arrayDimensions();
 	
 	public Array makeArray(int dimensions) {
 		return new Array(this, dimensions);
 	}
+	
+	@Override
+	public abstract boolean equals(Object obj);
+	
+	@Override
+	public abstract int hashCode();
 	
 }

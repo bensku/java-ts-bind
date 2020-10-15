@@ -16,19 +16,19 @@ import io.github.bensku.tsbind.ast.TypeRef;
  */
 public class BindingGenerator implements AstConsumer<String> {
 
-	private static final Set<TypeRef> EXCLUDED = new HashSet<>();
+	static final Set<TypeRef> EXCLUDED_TYPES = new HashSet<>();
 	
 	static {
-		EXCLUDED.add(TypeRef.BOOLEAN);
-		EXCLUDED.add(TypeRef.BYTE);
-		EXCLUDED.add(TypeRef.SHORT);
-		EXCLUDED.add(TypeRef.CHAR);
-		EXCLUDED.add(TypeRef.INT);
-		EXCLUDED.add(TypeRef.LONG);
-		EXCLUDED.add(TypeRef.FLOAT);
-		EXCLUDED.add(TypeRef.DOUBLE);
-		EXCLUDED.add(TypeRef.STRING);
-		EXCLUDED.add(TypeRef.OBJECT);
+		EXCLUDED_TYPES.add(TypeRef.BOOLEAN);
+		EXCLUDED_TYPES.add(TypeRef.BYTE);
+		EXCLUDED_TYPES.add(TypeRef.SHORT);
+		EXCLUDED_TYPES.add(TypeRef.CHAR);
+		EXCLUDED_TYPES.add(TypeRef.INT);
+		EXCLUDED_TYPES.add(TypeRef.LONG);
+		EXCLUDED_TYPES.add(TypeRef.FLOAT);
+		EXCLUDED_TYPES.add(TypeRef.DOUBLE);
+		EXCLUDED_TYPES.add(TypeRef.STRING);
+		EXCLUDED_TYPES.add(TypeRef.OBJECT);
 	}
 	
 	@Override
@@ -61,13 +61,12 @@ public class BindingGenerator implements AstConsumer<String> {
 	}
 	
 	private void addType(Map<String, TsModule> modules, TypeDefinition type) {
-		if (EXCLUDED.contains(type.ref)) {
+		if (EXCLUDED_TYPES.contains(type.ref)) {
 			return; // Don't generate this type
 		}
 		
 		// Get module for package the class is in, creating if needed
-		TsModule module = modules.computeIfAbsent(getModuleName(type.ref), TsModule::new);
-		module.emitter().print(type);
+		modules.computeIfAbsent(getModuleName(type.ref), TsModule::new).addType(type);
 		
 		// Fake inner classes with TS modules
 		// Nested types in TS are quite different from Java, so we can't use them

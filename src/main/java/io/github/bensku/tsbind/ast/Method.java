@@ -1,6 +1,7 @@
 package io.github.bensku.tsbind.ast;
 
 import java.util.List;
+import java.util.function.Consumer;
 
 public class Method extends Member {
 
@@ -38,4 +39,13 @@ public class Method extends Member {
 		this.typeParams = typeParams;
 		this.isOverride = isOverride;
 	}
+
+	@Override
+	public void walk(Consumer<AstNode> visitor) {
+		visitor.accept(this);
+		returnType.walk(visitor);
+		params.forEach(param -> param.walk(visitor));
+		typeParams.forEach(param -> param.walk(visitor));
+	}
+
 }

@@ -1,6 +1,7 @@
 package io.github.bensku.tsbind.ast;
 
 import java.util.List;
+import java.util.function.Consumer;
 
 public class TypeDefinition extends Member {
 	
@@ -45,7 +46,14 @@ public class TypeDefinition extends Member {
 		this.interfaces = interfaces;
 		this.members = members;
 	}
-	
-	
+
+	@Override
+	public void walk(Consumer<AstNode> visitor) {
+		visitor.accept(this);
+		visitor.accept(ref);
+		superTypes.forEach(type -> type.walk(visitor));
+		interfaces.forEach(type -> type.walk(visitor));
+		members.forEach(member -> member.walk(visitor));
+	}
 
 }

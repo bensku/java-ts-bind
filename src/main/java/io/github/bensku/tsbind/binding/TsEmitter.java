@@ -1,10 +1,8 @@
 package io.github.bensku.tsbind.binding;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import io.github.bensku.tsbind.ast.AstNode;
 import io.github.bensku.tsbind.ast.Constructor;
@@ -54,21 +52,21 @@ public class TsEmitter {
 	private final Indenter indenter;
 	
 	/**
-	 * Java imports in classes 
+	 * Names of Java types in currently emitted module.
 	 */
-	private final Set<String> imports;
+	private final Map<TypeRef, String> typeNames;
 	
 	/**
 	 * Code generators for different AST node types.
 	 */
 	private final Map<Class<?>, TsGenerator<?>> generators;
 	
-	public TsEmitter(String indentation) {
+	public TsEmitter(String indentation, Map<TypeRef, String> typeNames) {
 		this.output = new StringBuilder();
 		this.indentation = indentation;
 		this.indenter = new Indenter();
 		this.indentStr = "";
-		this.imports = new HashSet<>();
+		this.typeNames = typeNames;
 		this.generators = new HashMap<>();
 		registerGenerators();
 	}
@@ -96,10 +94,6 @@ public class TsEmitter {
 		indentLevel++;
 		indentStr = indentation.repeat(indentLevel);
 		return indenter;
-	}
-	
-	public Set<String> imports() {
-		return imports;
 	}
 	
 	public TsEmitter print(String str) {
@@ -175,6 +169,12 @@ public class TsEmitter {
 		indent().println("/**");
 		doc.lines().map(String::stripLeading).filter(line -> !line.isEmpty()).forEach(this::javadocContent);
 		indent().println("*/");
+		return this;
+	}
+	
+	public TsEmitter printType(TypeRef type) {
+		String name = typeNames.get(type);
+		print(name != null ? name : type.name().replace('.', '_'));
 		return this;
 	}
 	

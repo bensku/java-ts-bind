@@ -18,6 +18,8 @@ import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.nodeTypes.NodeWithModifiers;
+import com.github.javaparser.ast.type.ClassOrInterfaceType;
+import com.github.javaparser.resolution.declarations.HasAccessSpecifier;
 import com.github.javaparser.resolution.declarations.ResolvedConstructorDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedFieldDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration;
@@ -166,10 +168,15 @@ public class AstGenerator {
 		if (type.isClassOrInterfaceDeclaration()) {
 			ClassOrInterfaceDeclaration decl = type.asClassOrInterfaceDeclaration();
 			typeKind = decl.isInterface() ? TypeDefinition.Kind.INTERFACE : TypeDefinition.Kind.CLASS;
-			superTypes = decl.getExtendedTypes().stream().map(t
-					-> TypeRef.fromType(t.resolve())).collect(Collectors.toList());
-			interfaces = decl.getImplementedTypes().stream().map(t
-					-> TypeRef.fromType(t.resolve())).collect(Collectors.toList());
+			
+			superTypes = decl.getExtendedTypes().stream()
+					.map(ClassOrInterfaceType::resolve)
+					.filter(t -> isPublic(t.getTypeDeclaration().orElse(null)))
+					.map(t -> TypeRef.fromType(t)).collect(Collectors.toList());
+			interfaces = decl.getImplementedTypes().stream()
+					.map(ClassOrInterfaceType::resolve)
+					.filter(t -> isPublic(t.getTypeDeclaration().orElse(null)))
+					.map(t -> TypeRef.fromType(t)).collect(Collectors.toList());
 		} else if (type.isEnumDeclaration()) {
 			typeKind = TypeDefinition.Kind.ENUM;
 			superTypes = List.of(TypeRef.enumSuperClass(typeRef));
@@ -200,5 +207,12 @@ public class AstGenerator {
 		// Enum constants are handled separately, JavaParser doesn't consider them members
 		
 		return false; // No reason to consider member public
+	}
+	
+	private boolean isPublic(ResolvedReferenceTypeDeclaration type) {
+		if (type instanceof HasAccessSpecifier) {
+			return ((HasAccessSpecifier) type).accessSpecifier() == AccessSpecifier.PUBLIC;
+		}
+		return false;
 	}
 }

@@ -1,6 +1,7 @@
 package io.github.bensku.tsbind.ast;
 
 import java.util.Objects;
+import java.util.function.Consumer;
 
 public class Field extends Member {
 	
@@ -20,5 +21,11 @@ public class Field extends Member {
 		Objects.requireNonNull(type);
 		this.name = name;
 		this.type = type;
+	}
+
+	@Override
+	public void walk(Consumer<AstNode> visitor) {
+		visitor.accept(this);
+		visitor.accept(type);
 	}
 }

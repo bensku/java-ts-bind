@@ -5,7 +5,9 @@ import io.github.bensku.tsbind.ast.TypeRef;
 public class TsTypes {
 
 	public static final TsGenerator<TypeRef.Simple> SIMPLE = (node, out) -> {
-		if (node == TypeRef.BOOLEAN) {
+		if (node == TypeRef.VOID) {
+			out.print("void");
+		} else if (node == TypeRef.BOOLEAN) {
 			out.print("boolean");
 		} else if (node == TypeRef.BYTE || node == TypeRef.CHAR || node == TypeRef.SHORT 
 				|| node == TypeRef.INT || node == TypeRef.FLOAT
@@ -20,11 +22,7 @@ public class TsTypes {
 			// Also helps with generic inheritance
 			out.print("any");
 		} else {
-			out.print(node.name().replace('.', '_'));
-			if (node.name().contains(".")) { // Probably needs to be imported
-				// TODO JavaParser can distinguish T and a.b.Foo, try to use that knowledge
-				out.imports().add(node.name());
-			}
+			out.printType(node);
 		}
 	};
 	
@@ -39,6 +37,6 @@ public class TsTypes {
 	};
 	
 	public static final TsGenerator<TypeRef.Array> ARRAY = (node, out) -> {
-		out.print(node.componentType()).print("[]".repeat(node.arrayDimensions()));
+		out.print(node.baseType()).print("[]".repeat(node.arrayDimensions()));
 	};
 }
