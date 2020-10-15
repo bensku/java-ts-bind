@@ -1,7 +1,6 @@
 package io.github.bensku.tsbind;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -14,6 +13,7 @@ import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.BodyDeclaration;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
+import com.github.javaparser.ast.body.EnumConstantDeclaration;
 import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.body.VariableDeclarator;
@@ -89,14 +89,24 @@ public class AstGenerator {
 	}
 	
 	private Optional<TypeDefinition> processType(String typeName, TypeDeclaration<?> type) {
-		ResolvedReferenceTypeDeclaration resolved = type.resolve();
-		boolean isInterface = resolved.isInterface();
-		
+		ResolvedReferenceTypeDeclaration resolved = type.resolve();		
+		TypeRef typeRef = TypeRef.fromDeclaration(typeName, resolved);
 		List<Member> members = new ArrayList<>();
 		
+		// If this is an enum, generate enum constants and compiler-generated methods
+		// JavaParser doesn't consider enum constants "members"
+		if (type.isEnumDeclaration()) {
+			for (EnumConstantDeclaration constant : type.asEnumDeclaration().getEntries()) {
+				members.add(new Field(constant.getNameAsString(), typeRef, getJavadoc(constant), true));
+			}
+			
+			members.add(new Method("valueOf", typeRef, List.of(new Parameter("name", TypeRef.STRING)), List.of(), "", true, false));
+			members.add(new Method("values", typeRef.makeArray(1), List.of(), List.of(), "", true, false));
+		}
+		
+		// Handle normal members
 		for (BodyDeclaration<?> member : type.getMembers()) {
-			if (!isInterface && member instanceof NodeWithModifiers &&
-					((NodeWithModifiers<?>) member).getAccessSpecifier() != AccessSpecifier.PUBLIC) {
+			if (!isPublic(type, member)) {
 				continue; // Neither implicitly or explicitly public
 			}
 			
@@ -107,11 +117,9 @@ public class AstGenerator {
 				processType(typeName + "." + inner.getNameAsString(), inner).ifPresent(members::add);
 			} else if (member.isConstructorDeclaration()) {
 				ResolvedConstructorDeclaration constructor = member.asConstructorDeclaration().resolve();
-				if (constructor.accessSpecifier() == AccessSpecifier.PUBLIC) {
-					// Constructor might be generic, but AFAIK TypeScript doesn't support that
-					// (constructors of generic classes are, of course, supported)
-					members.add(new Constructor(constructor.getName(), TypeRef.VOID, getParameters(constructor), getJavadoc(member)));
-				}
+				// Constructor might be generic, but AFAIK TypeScript doesn't support that
+				// (constructors of generic classes are, of course, supported)
+				members.add(new Constructor(constructor.getName(), TypeRef.VOID, getParameters(constructor), getJavadoc(member)));
 			} else if (member.isMethodDeclaration()) {
 				ResolvedMethodDeclaration method = member.asMethodDeclaration().resolve();
 				
@@ -162,15 +170,35 @@ public class AstGenerator {
 					-> TypeRef.fromType(t.resolve())).collect(Collectors.toList());
 			interfaces = decl.getImplementedTypes().stream().map(t
 					-> TypeRef.fromType(t.resolve())).collect(Collectors.toList());
+		} else if (type.isEnumDeclaration()) {
+			typeKind = TypeDefinition.Kind.ENUM;
+			superTypes = List.of(TypeRef.enumSuperClass(typeRef));
+			interfaces = List.of();
 		} else {
-			typeKind = type.isEnumDeclaration() ? TypeDefinition.Kind.ENUM : TypeDefinition.Kind.ANNOTATION;
-			superTypes = Collections.emptyList();
-			interfaces = Collections.emptyList();
+			typeKind = TypeDefinition.Kind.ANNOTATION;
+			superTypes = List.of();
+			interfaces = List.of();
 		}
 		
 		String javadoc = getJavadoc(type);
-		TypeRef ref = TypeRef.fromDeclaration(typeName, resolved);
-		return Optional.of(new TypeDefinition(javadoc, type.isStatic(), ref, typeKind,
+		return Optional.of(new TypeDefinition(javadoc, type.isStatic(), typeRef, typeKind,
 				superTypes, interfaces, members));
+	}
+	
+	private boolean isPublic(TypeDeclaration<?> type, BodyDeclaration<?> member) {
+		// JPMS is ignored for now, would need to parse module infos for that
+		AccessSpecifier access = (member instanceof NodeWithModifiers<?>)
+				? ((NodeWithModifiers<?>) member).getAccessSpecifier() : AccessSpecifier.PACKAGE_PRIVATE;
+		// Members specified as public are ALWAYS public
+		if (access == AccessSpecifier.PUBLIC) {
+			return true;
+		}
+		// Default ("package private") access in interfaces is public
+		if (access == AccessSpecifier.PACKAGE_PRIVATE && type.isClassOrInterfaceDeclaration()) {
+			return type.asClassOrInterfaceDeclaration().isInterface();
+		}
+		// Enum constants are handled separately, JavaParser doesn't consider them members
+		
+		return false; // No reason to consider member public
 	}
 }

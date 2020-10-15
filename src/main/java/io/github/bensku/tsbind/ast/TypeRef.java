@@ -111,6 +111,10 @@ public abstract class TypeRef implements AstNode {
 		}
 	}
 	
+	public static TypeRef enumSuperClass(TypeRef enumType) {
+		return new Parametrized(getSimpleType("java.lang.Enum"), List.of(enumType));
+	}
+	
 	public static TypeRef fromDeclaration(String typeName, ResolvedReferenceTypeDeclaration decl) {
 		var typeParams = decl.getTypeParameters();
 		if (typeParams.isEmpty()) {
@@ -248,5 +252,9 @@ public abstract class TypeRef implements AstNode {
 	}
 	
 	public abstract int arrayDimensions();
+	
+	public Array makeArray(int dimensions) {
+		return new Array(this, dimensions);
+	}
 	
 }
