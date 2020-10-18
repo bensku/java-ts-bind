@@ -26,6 +26,14 @@ public abstract class TypeRef implements AstNode {
 	public static final Simple OBJECT = new Simple("java.lang.Object");
 	public static final Simple STRING =  new Simple("java.lang.String");
 	
+	public static TypeRef fromType(ResolvedType type, boolean nullable) {
+		if (nullable) {
+			return new Nullable(fromType(type));
+		} else {
+			return fromType(type);
+		}
+	}
+	
 	public static TypeRef fromType(ResolvedType type) {
 		if (type.isVoid()) {
 			return VOID;
@@ -331,7 +339,59 @@ public abstract class TypeRef implements AstNode {
 		public int hashCode() {
 			return component.hashCode() + 31 * dimensions;
 		}
+	}
+	
+	public static class Nullable extends TypeRef {
+
+		/**
+		 * Type that is nullable.
+		 */
+		private final TypeRef type;
 		
+		private Nullable(TypeRef type) {
+			this.type = type;
+		}
+		
+		/**
+		 * Type that we wrap because it is nullable.
+		 * @return Nullable type.
+		 */
+		public TypeRef nullableType() {
+			return type;
+		}
+		
+		@Override
+		public String name() {
+			return type.name();
+		}
+
+		@Override
+		public TypeRef baseType() {
+			return type;
+		}
+
+		@Override
+		public int arrayDimensions() {
+			return type.arrayDimensions();
+		}
+		
+		@Override
+		public void walk(Consumer<AstNode> visitor) {
+			type.walk(visitor);
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (!(obj instanceof Nullable)) {
+				return false;
+			}
+			return ((Nullable) obj).type.equals(this.type);
+		}
+
+		@Override
+		public int hashCode() {
+			return type.hashCode();
+		}
 		
 	}
 	

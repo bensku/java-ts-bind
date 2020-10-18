@@ -15,6 +15,7 @@ import com.github.javaparser.ast.body.BodyDeclaration;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.EnumConstantDeclaration;
 import com.github.javaparser.ast.body.FieldDeclaration;
+import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.nodeTypes.NodeWithModifiers;
@@ -72,11 +73,11 @@ public class AstGenerator {
 		}
 	}
 	
-	private List<Parameter> getParameters(ResolvedMethodLikeDeclaration method) {
+	private List<Parameter> getParameters(ResolvedMethodLikeDeclaration method, Boolean[] nullable) {
 		List<Parameter> params = new ArrayList<>(method.getNumberOfParams());
 		for (int i = 0; i < method.getNumberOfParams(); i++) {
 			ResolvedParameterDeclaration param = method.getParam(i);
-			params.add(new Parameter(param.getName(), TypeRef.fromType(param.getType())));
+			params.add(new Parameter(param.getName(), TypeRef.fromType(param.getType(), nullable[i])));
 		}
 		return params;
 	}
@@ -119,45 +120,15 @@ public class AstGenerator {
 				processType(typeName + "." + inner.getNameAsString(), inner).ifPresent(members::add);
 			} else if (member.isConstructorDeclaration()) {
 				ResolvedConstructorDeclaration constructor = member.asConstructorDeclaration().resolve();
+				Boolean[] nullable = member.asConstructorDeclaration().getParameters().stream()
+						.map(param -> param.isAnnotationPresent("Nullable")).toArray(Boolean[]::new);
 				// Constructor might be generic, but AFAIK TypeScript doesn't support that
 				// (constructors of generic classes are, of course, supported)
-				members.add(new Constructor(constructor.getName(), TypeRef.VOID, getParameters(constructor), getJavadoc(member)));
+				members.add(new Constructor(constructor.getName(), TypeRef.VOID, getParameters(constructor, nullable), getJavadoc(member)));
 			} else if (member.isMethodDeclaration()) {
-				ResolvedMethodDeclaration method = member.asMethodDeclaration().resolve();
-				
-				String name = method.getName();
-				TypeRef returnType = TypeRef.fromType(method.getReturnType());
-				String methodDoc = getJavadoc(member);
-				boolean override = member.getAnnotationByClass(Override.class).isPresent();
-				// TODO check if GraalJS works with "is" for boolean getter too
-				if (name.length() > 3 && name.startsWith("get") && !method.getReturnType().isVoid()
-						&& method.getNumberOfParams() == 0 && method.getTypeParameters().isEmpty()) {
-					// GraalJS will make this getter work, somehow
-					members.add(new Getter(name, returnType, methodDoc, override));
-				} else if (name.length() > 4 && name.startsWith("set") && method.getReturnType().isVoid()
-						&& method.getNumberOfParams() == 1 && method.getTypeParameters().isEmpty()) {
-					// GraalJS will make this setter work, somehow
-					members.add(new Setter(name, TypeRef.fromType(method.getParam(0).getType()), methodDoc, override));
-				} else { // Normal method
-					// Resolve type parameters and add to member list
-					members.add(new Method(name, returnType, getParameters(method),
-							method.getTypeParameters().stream().map(TypeRef::fromDeclaration).collect(Collectors.toList()),
-							methodDoc, method.isStatic(), override));
-				}
+				members.add(processMethod(member.asMethodDeclaration()));
 			} else if (member.isFieldDeclaration()) {
-				FieldDeclaration field = member.asFieldDeclaration();
-				NodeList<VariableDeclarator> vars = field.getVariables();
-				if (vars.size() == 1) {
-					ResolvedFieldDeclaration resolvedField = field.resolve();
-					members.add(new Field(resolvedField.getName(), TypeRef.fromType(resolvedField.getType()),
-							getJavadoc(member), field.isStatic()));
-				} else { // Symbol solver can't resolve this for us
-					for (VariableDeclarator var : vars) {
-						ResolvedValueDeclaration resolvedVar = var.resolve();
-						members.add(new Field(resolvedVar.getName(), TypeRef.fromType(resolvedVar.getType()),
-								getJavadoc(member), field.isStatic()));
-					}
-				}
+				processField(members, member.asFieldDeclaration());
 			}
 		}
 		
@@ -214,5 +185,49 @@ public class AstGenerator {
 			return ((HasAccessSpecifier) type).accessSpecifier() == AccessSpecifier.PUBLIC;
 		}
 		return false;
+	}
+	
+	private Method processMethod(MethodDeclaration member) {
+		ResolvedMethodDeclaration method = member.asMethodDeclaration().resolve();
+		boolean nullableReturn = member.isAnnotationPresent("Nullable");
+		Boolean[] nullableParams = member.getParameters().stream()
+				.map(param -> param.isAnnotationPresent("Nullable")).toArray(Boolean[]::new);
+		
+		String name = method.getName();
+		TypeRef returnType = TypeRef.fromType(method.getReturnType(), nullableReturn);
+		String methodDoc = getJavadoc(member);
+		boolean override = member.getAnnotationByClass(Override.class).isPresent();
+		// TODO check if GraalJS works with "is" for boolean getter too
+		if (name.length() > 3 && name.startsWith("get") && !method.getReturnType().isVoid()
+				&& method.getNumberOfParams() == 0 && method.getTypeParameters().isEmpty()) {
+			// GraalJS will make this getter work, somehow
+			return new Getter(name, returnType, methodDoc, override);
+		} else if (name.length() > 4 && name.startsWith("set") && method.getReturnType().isVoid()
+				&& method.getNumberOfParams() == 1 && method.getTypeParameters().isEmpty()) {
+			// GraalJS will make this setter work, somehow
+			return new Setter(name, TypeRef.fromType(method.getParam(0).getType(), nullableParams[0]), methodDoc, override);
+		} else { // Normal method
+			// Resolve type parameters and add to member list
+			return new Method(name, returnType, getParameters(method, nullableParams),
+					method.getTypeParameters().stream().map(TypeRef::fromDeclaration).collect(Collectors.toList()),
+					methodDoc, method.isStatic(), override);
+		}
+	}
+	
+	private void processField(List<Member> members, FieldDeclaration member) {
+		FieldDeclaration field = member.asFieldDeclaration();
+		boolean nullable = field.isAnnotationPresent("Nullable");
+		NodeList<VariableDeclarator> vars = field.getVariables();
+		if (vars.size() == 1) {
+			ResolvedFieldDeclaration resolvedField = field.resolve();
+			members.add(new Field(resolvedField.getName(), TypeRef.fromType(resolvedField.getType(), nullable),
+					getJavadoc(member), field.isStatic()));
+		} else { // Symbol solver can't resolve this for us
+			for (VariableDeclarator var : vars) {
+				ResolvedValueDeclaration resolvedVar = var.resolve();
+				members.add(new Field(resolvedVar.getName(), TypeRef.fromType(resolvedVar.getType(), nullable),
+						getJavadoc(member), field.isStatic()));
+			}
+		}
 	}
 }

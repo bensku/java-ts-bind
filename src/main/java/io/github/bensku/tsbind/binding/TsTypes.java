@@ -39,4 +39,8 @@ public class TsTypes {
 	public static final TsGenerator<TypeRef.Array> ARRAY = (node, out) -> {
 		out.print(node.baseType()).print("[]".repeat(node.arrayDimensions()));
 	};
+	
+	public static final TsGenerator<TypeRef.Nullable> NULLABLE = (node, out) -> {
+		out.print(node.nullableType()).print(" | null");
+	};
 }

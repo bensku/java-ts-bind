@@ -81,6 +81,7 @@ public class TsEmitter {
 		addGenerator(TypeRef.Wildcard.class, TsTypes.WILDCARD);
 		addGenerator(TypeRef.Parametrized.class, TsTypes.PARAMETRIZED);
 		addGenerator(TypeRef.Array.class, TsTypes.ARRAY);
+		addGenerator(TypeRef.Nullable.class, TsTypes.NULLABLE);
 		
 		addGenerator(Field.class, TsMembers.FIELD);
 		addGenerator(Parameter.class, TsMembers.PARAMETER);
