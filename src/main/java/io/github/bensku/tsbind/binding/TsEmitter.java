@@ -4,6 +4,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.jsoup.Jsoup;
+
 import io.github.bensku.tsbind.ast.AstNode;
 import io.github.bensku.tsbind.ast.Constructor;
 import io.github.bensku.tsbind.ast.Field;
@@ -162,11 +164,17 @@ public class TsEmitter {
 		return this;
 	}
 	
+	private String processJavadoc(String doc) {
+		// Strip HTML out; TODO markdown generation
+		return Jsoup.parseBodyFragment(doc).wholeText();
+	}
+	
 	private void javadocContent(String line) {
 		indent().print(" ").println(line);
 	}
 	
 	public TsEmitter javadoc(String doc) {
+		doc = processJavadoc(doc);
 		indent().println("/**");
 		doc.lines().map(String::stripLeading).filter(line -> !line.isEmpty()).forEach(this::javadocContent);
 		indent().println("*/");
