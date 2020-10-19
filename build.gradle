@@ -1,5 +1,6 @@
 plugins {
     id 'java'
+    id 'com.github.johnrengelman.shadow' version '6.1.0'
 }
 
 repositories {
@@ -11,4 +12,10 @@ dependencies {
     compile 'com.google.code.gson:gson:2.8.6'
     compile 'com.beust:jcommander:1.71'
     compile 'org.jsoup:jsoup:1.13.1'
+}
+
+jar {
+    manifest {
+        attributes('Main-Class': 'io.github.bensku.tsbind.cli.BindGenApp')
+    }
 }

@@ -1,0 +1,30 @@
+name: Java build
+
+on: push
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-java@v1
+        with:
+          java-version: 11
+      - name: Gradle build
+        run: gradle shadowJar
+      - name: Download JDK sources
+        run: sudo apt-get install -y openjdk-11-source
+      - name: Generate core types
+        run: java -jar build/libs/java-ts-bind-all.jar --in /usr/lib/jvm/openjdk-11/src.zip --out java-core-types --offset java.base --include "(java.lang|java.util).*"
+      - uses: actions/setup-node@master
+        if: github.ref == 'refs/heads/master'
+        with:
+          registry-url: https://npm.pkg.github.com/
+          scope: "@bensku"
+      - name: Publish core types
+        run: |
+          sed -i "s/VERSION/11.0.8-$(git rev-parse --short $GITHUB_SHA)/g" java-core-types/package.json
+          npm publish java-core-types
+        if: github.ref == 'refs/heads/master'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
