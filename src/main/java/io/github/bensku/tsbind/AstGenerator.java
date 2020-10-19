@@ -20,6 +20,7 @@ import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.nodeTypes.NodeWithModifiers;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
+import com.github.javaparser.resolution.UnsolvedSymbolException;
 import com.github.javaparser.resolution.declarations.HasAccessSpecifier;
 import com.github.javaparser.resolution.declarations.ResolvedConstructorDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedFieldDeclaration;
@@ -58,16 +59,23 @@ public class AstGenerator {
 	 * @return Parsed type or empty optional if it is not public.
 	 */
 	public Optional<TypeDefinition> parseType(SourceUnit source) {
+		// FIXME don't log errors here, CLI might not be only user in future
+		
 		ParseResult<CompilationUnit> result = parser.parse(source.code);
 		if (!result.isSuccessful()) {
 			//throw new IllegalArgumentException("failed to parse given source code: " + result.getProblems());
-			System.out.println("failed to parse " + source.name + ": " + result.getProblems());
+			System.err.println("failed to parse " + source.name + ": " + result.getProblems());
 			return Optional.empty();
 		}
 		CompilationUnit unit = result.getResult().orElseThrow();
 		TypeDeclaration<?> type = unit.findFirst(TypeDeclaration.class).orElseThrow();
 		if (type.getAccessSpecifier() == AccessSpecifier.PUBLIC) {
-			return processType(source.name, type);			
+			try {
+				return processType(source.name, type);
+			} catch (UnsolvedSymbolException e) {
+				System.err.println("failed to resolved symbol " + e.getName() + " in " + source.name);
+				return Optional.empty();
+			}
 		} else {
 			return Optional.empty();
 		}
@@ -198,9 +206,13 @@ public class AstGenerator {
 		String methodDoc = getJavadoc(member);
 		boolean override = member.getAnnotationByClass(Override.class).isPresent();
 		// TODO check if GraalJS works with "is" for boolean getter too
-		if (name.length() > 3 && name.startsWith("get") && !method.getReturnType().isVoid()
+		if (name.length() > 3 && name.startsWith("get") && returnType != TypeRef.VOID
 				&& method.getNumberOfParams() == 0 && method.getTypeParameters().isEmpty()) {
 			// GraalJS will make this getter work, somehow
+			return new Getter(name, returnType, methodDoc, override);
+		} else if (name.length() > 2 && name.startsWith("is") && returnType == TypeRef.BOOLEAN
+				&& method.getNumberOfParams() == 0 && method.getTypeParameters().isEmpty()) {
+			// Boolean getters are also supported
 			return new Getter(name, returnType, methodDoc, override);
 		} else if (name.length() > 4 && name.startsWith("set") && method.getReturnType().isVoid()
 				&& method.getNumberOfParams() == 1 && method.getTypeParameters().isEmpty()) {

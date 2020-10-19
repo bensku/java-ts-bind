@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
@@ -13,6 +14,7 @@ import com.beust.jcommander.JCommander;
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.JarTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
 
 import io.github.bensku.tsbind.AstConsumer.Result;
@@ -36,7 +38,7 @@ public class BindGenApp {
 		}
 		
 		// Prepare for AST generation
-		JavaParser parser = setupParser();
+		JavaParser parser = setupParser(args.symbolSources);
 		AstGenerator astGenerator = new AstGenerator(parser);
 		
 		// Walk over input Java source files
@@ -70,9 +72,12 @@ public class BindGenApp {
 		}
 	}
 	
-	private static JavaParser setupParser() {
+	private static JavaParser setupParser(List<Path> symbolSources) throws IOException {
 		CombinedTypeSolver typeSolver = new CombinedTypeSolver();
 		typeSolver.add(new ReflectionTypeSolver());
+		for (Path jar : symbolSources) {
+			typeSolver.add(new JarTypeSolver(jar));
+		}
 		
 		JavaSymbolSolver symbolSolver = new JavaSymbolSolver(typeSolver);
 		JavaParser parser = new JavaParser();

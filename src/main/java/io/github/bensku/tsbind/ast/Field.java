@@ -26,6 +26,6 @@ public class Field extends Member {
 	@Override
 	public void walk(Consumer<AstNode> visitor) {
 		visitor.accept(this);
-		visitor.accept(type);
+		type.walk(visitor);
 	}
 }

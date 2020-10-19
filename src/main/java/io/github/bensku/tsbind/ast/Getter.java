@@ -5,7 +5,11 @@ import java.util.Collections;
 public class Getter extends Method {
 	
 	public static String getterName(String methodName) {
-		return methodName.substring(3, 4).toLowerCase() + methodName.substring(4);
+		if (methodName.startsWith("is")) {
+			return methodName.substring(2, 3).toLowerCase() + methodName.substring(3);
+		} else {
+			return methodName.substring(3, 4).toLowerCase() + methodName.substring(4);
+		}
 	}
 	
 	public final String originalName;

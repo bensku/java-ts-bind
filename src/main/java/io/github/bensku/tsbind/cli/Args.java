@@ -1,6 +1,8 @@
 package io.github.bensku.tsbind.cli;
 
 import java.nio.file.Path;
+import java.util.Collections;
+import java.util.List;
 
 import com.beust.jcommander.Parameter;
 
@@ -26,6 +28,9 @@ public class Args {
 	
 	@Parameter(names = "--in", required = true)
 	public Path inputPath;
+	
+	@Parameter(names = "--symbols")
+	public List<Path> symbolSources = Collections.emptyList();
 	
 	@Parameter(names = "--offset")
 	public String offset = "";

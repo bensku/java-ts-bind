@@ -86,6 +86,8 @@ public abstract class TypeRef implements AstNode {
 	
 	private static Simple getSimpleType(String name) {
 		switch (name) {
+		case "java.lang.Boolean":
+			return BOOLEAN;
 		case "java.lang.Byte":
 			return BYTE;
 		case "java.lang.Short":
@@ -367,7 +369,7 @@ public abstract class TypeRef implements AstNode {
 
 		@Override
 		public TypeRef baseType() {
-			return type;
+			return type.baseType();
 		}
 
 		@Override
