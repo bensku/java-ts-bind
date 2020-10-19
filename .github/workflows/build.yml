@@ -17,14 +17,13 @@ jobs:
       - name: Generate core types
         run: java -jar build/libs/java-ts-bind-all.jar --in /usr/lib/jvm/openjdk-11/src.zip --out java-core-types --offset java.base --include "(java.lang|java.util).*"
       - uses: actions/setup-node@master
-        if: github.ref == 'refs/heads/master'
         with:
-          registry-url: https://npm.pkg.github.com/
-          scope: "@bensku"
+          registry-url: 'https://registry.npmjs.org'
+        if: github.ref == 'refs/heads/master'
       - name: Publish core types
         run: |
           sed -i "s/VERSION/11.0.8-$(git rev-parse --short $GITHUB_SHA)/g" java-core-types/package.json
-          npm publish java-core-types
+          npm publish --access=public java-core-types
         if: github.ref == 'refs/heads/master'
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}

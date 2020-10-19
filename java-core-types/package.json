@@ -7,8 +7,5 @@
     "url": "git+ssh://git@github.com/bensku/java-ts-bind.git",
     "directory": "java-core-types"
   },
-  "publishConfig": {
-    "registry":"https://npm.pkg.github.com"
-  },
   "author": "bensku"
 }
