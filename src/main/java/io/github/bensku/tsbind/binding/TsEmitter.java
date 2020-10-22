@@ -166,7 +166,8 @@ public class TsEmitter {
 	
 	private String processJavadoc(String doc) {
 		// Strip HTML out; TODO markdown generation
-		return Jsoup.parseBodyFragment(doc).wholeText();
+		return Jsoup.parseBodyFragment(doc).wholeText()
+				.replace("*/", "* /"); // No surprise Javadoc ends
 	}
 	
 	private void javadocContent(String line) {

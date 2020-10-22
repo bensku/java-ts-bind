@@ -1,13 +1,12 @@
 package io.github.bensku.tsbind.cli;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Predicate;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import com.beust.jcommander.JCommander;
@@ -42,12 +41,12 @@ public class BindGenApp {
 		AstGenerator astGenerator = new AstGenerator(parser);
 		
 		// Walk over input Java source files
-		Predicate<String> included = Pattern.compile(args.include).asMatchPredicate();
 		try (Stream<Path> files = Files.walk(inputDir)
 				.filter(Files::isRegularFile)
 				.filter(f -> f.getFileName().toString().endsWith(".java"))
 				.filter(f -> !f.getFileName().toString().equals("package-info.java"))
-				.filter(path -> included.test(inputDir.relativize(path).toString()))) {
+				.filter(f -> isIncluded(inputDir.relativize(f).toString().replace(File.separatorChar, '.'),
+						args.include, args.exclude))) {
 			Stream<TypeDefinition> types = files.map(path -> {
 				String name = inputDir.relativize(path).toString().replace('/', '.');
 				name = name.substring(0, name.length() - 5); // Strip .java
@@ -70,6 +69,25 @@ public class BindGenApp {
 				}
 			});
 		}
+	}
+	
+	private static boolean isIncluded(String name, List<String> includes, List<String> excludes) {
+		boolean include = false;
+		for (String prefix : includes) {
+			if (name.startsWith(prefix)) {
+				include = true;
+				break;
+			}
+		}
+		if (!include) {
+			return false; // Not included
+		}
+		for (String prefix : excludes) {
+			if (name.startsWith(prefix)) {
+				return false; // Included but excluded
+			}
+		}
+		return true; // Included, not excluded
 	}
 	
 	private static JavaParser setupParser(List<Path> symbolSources) throws IOException {

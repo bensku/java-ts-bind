@@ -36,7 +36,10 @@ public class Args {
 	public String offset = "";
 	
 	@Parameter(names = "--include")
-	public String include = ".*";
+	public List<String> include = List.of("");
+	
+	@Parameter(names = "--exclude")
+	public List<String> exclude = Collections.emptyList();
 	
 	@Parameter(names = "--out")
 	public Path outDir = Path.of("");

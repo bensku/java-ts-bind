@@ -14,8 +14,12 @@ jobs:
         run: gradle shadowJar
       - name: Download JDK sources
         run: sudo apt-get install -y openjdk-11-source
-      - name: Generate core types
-        run: java -jar build/libs/java-ts-bind-all.jar --in /usr/lib/jvm/openjdk-11/src.zip --out java-core-types --offset java.base --include "(java.lang|java.util).*"
+      - name: Generate java.base types
+        run: >-
+          java -jar build/libs/java-ts-bind-all.jar
+          --in /usr/lib/jvm/openjdk-11/src.zip --out java-core-types --offset java.base
+          --include java.lang,java.util,java.io,java.nio
+          --exclude java.lang.Math,java.lang.StrictMath,java.util.concurrent,java.util.spi
       - uses: actions/setup-node@master
         with:
           registry-url: 'https://registry.npmjs.org'
