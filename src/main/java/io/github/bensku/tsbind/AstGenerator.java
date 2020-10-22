@@ -1,8 +1,11 @@
 package io.github.bensku.tsbind;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.github.javaparser.JavaParser;
@@ -29,6 +32,7 @@ import com.github.javaparser.resolution.declarations.ResolvedMethodLikeDeclarati
 import com.github.javaparser.resolution.declarations.ResolvedParameterDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedReferenceTypeDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedValueDeclaration;
+import com.github.javaparser.resolution.types.ResolvedReferenceType;
 
 import io.github.bensku.tsbind.ast.Constructor;
 import io.github.bensku.tsbind.ast.Field;
@@ -115,6 +119,35 @@ public class AstGenerator {
 			members.add(new Method("values", typeRef.makeArray(1), List.of(), List.of(), "", true, false));
 		}
 		
+		// Figure out supertypes and interfaces (needed by some members)
+		TypeDefinition.Kind typeKind;
+		List<TypeRef> superTypes;
+		List<TypeRef> interfaces;
+		// Overrides of methods from non-public types are not overrides from TS point of view
+		Set<String> privateOverrides = new HashSet<>();
+		if (type.isClassOrInterfaceDeclaration()) {
+			ClassOrInterfaceDeclaration decl = type.asClassOrInterfaceDeclaration();
+			typeKind = decl.isInterface() ? TypeDefinition.Kind.INTERFACE : TypeDefinition.Kind.CLASS;
+			
+			PublicFilterResult extendedResult = filterPublicTypes(decl.getExtendedTypes());
+			PublicFilterResult implementedResult = filterPublicTypes(decl.getImplementedTypes());
+			superTypes = extendedResult.publicTypes.stream()
+					.map(TypeRef::fromType).collect(Collectors.toList());;
+			interfaces = implementedResult.publicTypes.stream()
+					.map(TypeRef::fromType).collect(Collectors.toList());
+			
+			extendedResult.privateTypes.forEach(t -> privateOverrides.addAll(getAllMethods(t)));
+			implementedResult.privateTypes.forEach(t -> privateOverrides.addAll(getAllMethods(t)));
+		} else if (type.isEnumDeclaration()) {
+			typeKind = TypeDefinition.Kind.ENUM;
+			superTypes = List.of(TypeRef.enumSuperClass(typeRef));
+			interfaces = List.of();
+		} else {
+			typeKind = TypeDefinition.Kind.ANNOTATION;
+			superTypes = List.of();
+			interfaces = List.of();
+		}
+		
 		// Handle normal members
 		for (BodyDeclaration<?> member : type.getMembers()) {
 			if (!isPublic(type, member)) {
@@ -134,41 +167,56 @@ public class AstGenerator {
 				// (constructors of generic classes are, of course, supported)
 				members.add(new Constructor(constructor.getName(), TypeRef.VOID, getParameters(constructor, nullable), getJavadoc(member)));
 			} else if (member.isMethodDeclaration()) {
-				members.add(processMethod(member.asMethodDeclaration()));
+				members.add(processMethod(member.asMethodDeclaration(), privateOverrides));
 			} else if (member.isFieldDeclaration()) {
 				processField(members, member.asFieldDeclaration());
 			}
 		}
 		
-		// Create definition for the class (includes members create above)
-		TypeDefinition.Kind typeKind;
-		List<TypeRef> superTypes;
-		List<TypeRef> interfaces;
-		if (type.isClassOrInterfaceDeclaration()) {
-			ClassOrInterfaceDeclaration decl = type.asClassOrInterfaceDeclaration();
-			typeKind = decl.isInterface() ? TypeDefinition.Kind.INTERFACE : TypeDefinition.Kind.CLASS;
-			
-			superTypes = decl.getExtendedTypes().stream()
-					.map(ClassOrInterfaceType::resolve)
-					.filter(t -> isPublic(t.getTypeDeclaration().orElse(null)))
-					.map(t -> TypeRef.fromType(t)).collect(Collectors.toList());
-			interfaces = decl.getImplementedTypes().stream()
-					.map(ClassOrInterfaceType::resolve)
-					.filter(t -> isPublic(t.getTypeDeclaration().orElse(null)))
-					.map(t -> TypeRef.fromType(t)).collect(Collectors.toList());
-		} else if (type.isEnumDeclaration()) {
-			typeKind = TypeDefinition.Kind.ENUM;
-			superTypes = List.of(TypeRef.enumSuperClass(typeRef));
-			interfaces = List.of();
-		} else {
-			typeKind = TypeDefinition.Kind.ANNOTATION;
-			superTypes = List.of();
-			interfaces = List.of();
-		}
-		
+		// Create type definition
 		String javadoc = getJavadoc(type);
 		return Optional.of(new TypeDefinition(javadoc, type.isStatic(), typeRef, typeKind,
 				superTypes, interfaces, members));
+	}
+	
+	private static class PublicFilterResult {
+		public final List<ResolvedReferenceType> publicTypes = new ArrayList<>();
+		public final List<ResolvedReferenceType> privateTypes = new ArrayList<>();
+	}
+	
+	private PublicFilterResult filterPublicTypes(List<ClassOrInterfaceType> types) {
+		PublicFilterResult result = new PublicFilterResult();
+		for (ClassOrInterfaceType type : types) {
+			ResolvedReferenceType resolved = type.resolve();
+			if (isPublic(resolved.getTypeDeclaration().orElse(null))) {
+				result.publicTypes.add(resolved);
+			} else {
+				result.privateTypes.add(resolved);
+			}
+		}
+		return result;
+	}
+	
+	private Set<String> getAllMethods(ResolvedReferenceType type) {
+		if (type == null) {
+			return Collections.emptySet();
+		}
+		ResolvedReferenceTypeDeclaration decl = type.getTypeDeclaration().orElse(null);
+		if (decl == null) {
+			return Collections.emptySet();
+		}
+		Set<String> names = type.getAllMethods().stream().map(method -> method.getName())
+				.collect(Collectors.toCollection(HashSet::new));
+		if (decl.isClass()) {
+			decl.asClass().getSuperClass().ifPresent(c
+					-> names.addAll(getAllMethods(c)));
+			decl.asClass().getInterfaces().forEach(i
+					-> names.addAll(getAllMethods(i)));
+		} else if (decl.isInterface()) {
+			decl.asInterface().getInterfacesExtended().forEach(i
+					-> names.addAll(getAllMethods(i)));
+		}
+		return names;
 	}
 	
 	private boolean isPublic(TypeDeclaration<?> type, BodyDeclaration<?> member) {
@@ -195,7 +243,7 @@ public class AstGenerator {
 		return false;
 	}
 	
-	private Method processMethod(MethodDeclaration member) {
+	private Method processMethod(MethodDeclaration member, Set<String> privateOverrides) {
 		ResolvedMethodDeclaration method = member.asMethodDeclaration().resolve();
 		boolean nullableReturn = member.isAnnotationPresent("Nullable");
 		Boolean[] nullableParams = member.getParameters().stream()
@@ -204,7 +252,7 @@ public class AstGenerator {
 		String name = method.getName();
 		TypeRef returnType = TypeRef.fromType(method.getReturnType(), nullableReturn);
 		String methodDoc = getJavadoc(member);
-		boolean override = member.getAnnotationByClass(Override.class).isPresent();
+		boolean override = !privateOverrides.contains(name) && member.getAnnotationByClass(Override.class).isPresent();
 		// TODO check if GraalJS works with "is" for boolean getter too
 		if (name.length() > 3 && name.startsWith("get") && returnType != TypeRef.VOID
 				&& method.getNumberOfParams() == 0 && method.getTypeParameters().isEmpty()) {

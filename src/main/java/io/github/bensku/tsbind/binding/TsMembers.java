@@ -40,11 +40,6 @@ public class TsMembers {
 	};
 	
 	public static final TsGenerator<Method> METHOD = (node, out) -> {
-		if (node.isOverride 
-				&& (!node.javadoc.isPresent() || node.javadoc.orElseThrow().contains("{@inheritDoc}"))) {
-			return; // Method inherited, no need to specify again
-		}
-		
 		node.javadoc.ifPresent(out::javadoc);
 		out.indent();
 		if (node.isStatic) { // 'static' modified is roughly same in TS and Java

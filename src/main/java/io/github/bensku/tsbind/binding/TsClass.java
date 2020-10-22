@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import io.github.bensku.tsbind.ast.Method;
 import io.github.bensku.tsbind.ast.TypeDefinition;
 import io.github.bensku.tsbind.ast.TypeRef;
 
@@ -51,6 +52,7 @@ public class TsClass implements TsGenerator<TypeDefinition> {
 			// TODO use stream for printing to avoid unnecessary list creation in hot path
 			out.print(node.members.stream()
 					.filter(member -> !(member instanceof TypeDefinition))
+					.filter(member -> !(member instanceof Method) || !((Method) member).isOverride)
 					.collect(Collectors.toList()), "\n");
 		}
 		out.println("\n}");
