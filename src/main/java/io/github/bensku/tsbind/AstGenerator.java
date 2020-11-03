@@ -89,7 +89,8 @@ public class AstGenerator {
 		List<Parameter> params = new ArrayList<>(method.getNumberOfParams());
 		for (int i = 0; i < method.getNumberOfParams(); i++) {
 			ResolvedParameterDeclaration param = method.getParam(i);
-			params.add(new Parameter(param.getName(), TypeRef.fromType(param.getType(), nullable[i])));
+			TypeRef type = TypeRef.fromType(param.getType(), nullable[i]);
+			params.add(new Parameter(param.getName(), type, param.isVariadic()));
 		}
 		return params;
 	}
@@ -115,7 +116,9 @@ public class AstGenerator {
 				members.add(new Field(constant.getNameAsString(), typeRef, getJavadoc(constant), true));
 			}
 			
-			members.add(new Method("valueOf", typeRef, List.of(new Parameter("name", TypeRef.STRING)), List.of(), "", true, false));
+			members.add(new Method("valueOf", typeRef,
+					List.of(new Parameter("name", TypeRef.STRING, false)),
+					List.of(), "", true, false));
 			members.add(new Method("values", typeRef.makeArray(1), List.of(), List.of(), "", true, false));
 		}
 		

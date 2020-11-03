@@ -1,6 +1,7 @@
 package io.github.bensku.tsbind.ast;
 
 import java.util.Collections;
+import java.util.List;
 
 public class Setter extends Method {
 
@@ -11,7 +12,7 @@ public class Setter extends Method {
 	public final String originalName;
 
 	public Setter(String name, TypeRef type, String javadoc, boolean isOverride) {
-		super(setterName(name), TypeRef.VOID, Collections.singletonList(new Parameter(setterName(name), type)),
+		super(setterName(name), TypeRef.VOID, List.of(new Parameter(setterName(name), type, false)),
 				Collections.emptyList(), javadoc, false, isOverride);
 		this.originalName = name;
 	}

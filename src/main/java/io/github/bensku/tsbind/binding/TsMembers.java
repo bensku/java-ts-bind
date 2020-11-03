@@ -36,7 +36,11 @@ public class TsMembers {
 			default:
 				name = node.name;
 		}
-		out.print("%s: %s", name, node.type);
+		if (node.varargs) { // For varargs array, add ...
+			out.print("...%s: %s", name, node.type);
+		} else {
+			out.print("%s: %s", name, node.type);
+		}
 	};
 	
 	public static final TsGenerator<Method> METHOD = (node, out) -> {

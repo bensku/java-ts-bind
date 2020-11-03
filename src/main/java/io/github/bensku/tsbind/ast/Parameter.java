@@ -13,10 +13,16 @@ public class Parameter implements AstNode {
 	 * Parameter type.
 	 */
 	public final TypeRef type;
+	
+	/**
+	 * If this is a varargs parameter.
+	 */
+	public final boolean varargs;
 
-	public Parameter(String name, TypeRef type) {
+	public Parameter(String name, TypeRef type, boolean varargs) {
 		this.name = name;
 		this.type = type;
+		this.varargs = varargs;
 	}
 
 	@Override
