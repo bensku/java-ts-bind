@@ -3,7 +3,9 @@ package io.github.bensku.tsbind.binding;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+import io.github.bensku.tsbind.ast.Member;
 import io.github.bensku.tsbind.ast.Method;
 import io.github.bensku.tsbind.ast.TypeDefinition;
 import io.github.bensku.tsbind.ast.TypeRef;
@@ -50,10 +52,11 @@ public class TsClass implements TsGenerator<TypeDefinition> {
 		// Emit class members with some indentation
 		try (var none = out.startBlock()) {
 			// TODO use stream for printing to avoid unnecessary list creation in hot path
-			out.print(node.members.stream()
-					.filter(member -> !(member instanceof TypeDefinition))
-					.filter(member -> !(member instanceof Method) || !((Method) member).isOverride)
-					.collect(Collectors.toList()), "\n");
+			Stream<Member> members = memberStream(node);
+			if (mixinTrick) { // Don't emit static things, they won't be inherited
+				members = members.filter(member -> !member.isStatic);
+			}
+			out.print(members.collect(Collectors.toList()), "\n");
 		}
 		out.println("\n}");
 		
@@ -65,11 +68,22 @@ public class TsClass implements TsGenerator<TypeDefinition> {
 			emitName(node.ref.simpleName() + "_Impl", node.ref, out);
 			out.print(", ");
 			out.print(superTypes, ", ");
-			out.println("{}");
+			out.println(" {}");
 			out.print("export class ");
 			emitName(node.ref.simpleName(), node.ref, out);
-			out.println(" {}");
+			out.println(" {");
+			// Emit static methods
+			out.print(memberStream(node)
+					.filter(member -> member.isStatic)
+					.collect(Collectors.toList()), "\n");
+			out.println("\n}");
 		}
+	}
+	
+	private Stream<Member> memberStream(TypeDefinition node) {
+		return node.members.stream()
+				.filter(member -> !(member instanceof TypeDefinition))
+				.filter(member -> !(member instanceof Method) || !((Method) member).isOverride);
 	}
 
 }
