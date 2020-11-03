@@ -13,7 +13,9 @@ jobs:
       - name: Gradle build
         run: gradle shadowJar
       - name: Download JDK sources
-        run: sudo apt-get install -y openjdk-11-source
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openjdk-11-source
       - name: Generate java.base types
         run: >-
           java -jar build/libs/java-ts-bind-all.jar
