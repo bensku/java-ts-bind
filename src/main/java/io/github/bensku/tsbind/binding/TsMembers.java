@@ -31,7 +31,13 @@ public class TsMembers {
 				name = "func";
 				break;
 			case "in":
-				name = "input";
+				name = "in_";
+				break;
+			case "default":
+				name = "default_";
+				break;
+			case "with":
+				name = "with_";
 				break;
 			default:
 				name = node.name;
