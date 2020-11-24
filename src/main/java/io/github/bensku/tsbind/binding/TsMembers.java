@@ -79,11 +79,19 @@ public class TsMembers {
 	
 	public static final TsGenerator<Getter> GETTER = (node, out) -> {
 		node.javadoc.ifPresent(out::javadoc);
-		out.indent().print("get %s(): %s;", node.name, node.returnType);
+		out.indent();
+		if (node.isStatic) {
+			out.print("static ");
+		}
+		out.print("get %s(): %s;", node.name, node.returnType);
 	};
 	
 	public static final TsGenerator<Setter> SETTER = (node, out) -> {
 		node.javadoc.ifPresent(out::javadoc);
-		out.indent().print("set %s(%s);", node.name, node.params.get(0));
+		out.indent();
+		if (node.isStatic) {
+			out.print("static ");
+		}
+		out.print("set %s(%s);", node.name, node.params.get(0));
 	};
 }

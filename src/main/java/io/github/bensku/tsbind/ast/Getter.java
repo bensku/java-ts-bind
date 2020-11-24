@@ -14,8 +14,8 @@ public class Getter extends Method {
 	
 	public final String originalName;
 
-	public Getter(String name, TypeRef type, String javadoc, boolean isOverride) {
-		super(getterName(name), type, Collections.emptyList(), Collections.emptyList(), javadoc, false, isOverride);
+	public Getter(String name, TypeRef type, String javadoc, boolean isStatic, boolean isOverride) {
+		super(getterName(name), type, Collections.emptyList(), Collections.emptyList(), javadoc, isStatic, isOverride);
 		this.originalName = name;
 	}
 
