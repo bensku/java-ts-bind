@@ -19,4 +19,6 @@ public abstract class Member implements AstNode {
 		this.isStatic = isStatic;
 	}
 	
+	public abstract String name();
+	
 }

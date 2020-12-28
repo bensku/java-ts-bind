@@ -15,17 +15,28 @@ public class Field extends Member {
 	 */
 	public final TypeRef type;
 	
-	public Field(String name, TypeRef type, String javadoc, boolean isStatic) {
+	/**
+	 * If this field is final (readonly).
+	 */
+	public final boolean isFinal;
+	
+	public Field(String name, TypeRef type, String javadoc, boolean isStatic, boolean isFinal) {
 		super(javadoc, isStatic);
 		Objects.requireNonNull(name);
 		Objects.requireNonNull(type);
 		this.name = name;
 		this.type = type;
+		this.isFinal = isFinal;
 	}
 
 	@Override
 	public void walk(Consumer<AstNode> visitor) {
 		visitor.accept(this);
 		type.walk(visitor);
+	}
+
+	@Override
+	public String name() {
+		return name;
 	}
 }

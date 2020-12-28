@@ -20,6 +20,9 @@ public class TsMembers {
 		if (node.isStatic) {
 			out.print("static ");
 		}
+		if (node.isFinal) {
+			out.print("readonly ");
+		}
 		out.print("%s: %s;", node.name, node.type);
 	};
 	

@@ -113,7 +113,7 @@ public class AstGenerator {
 		// JavaParser doesn't consider enum constants "members"
 		if (type.isEnumDeclaration()) {
 			for (EnumConstantDeclaration constant : type.asEnumDeclaration().getEntries()) {
-				members.add(new Field(constant.getNameAsString(), typeRef, getJavadoc(constant), true));
+				members.add(new Field(constant.getNameAsString(), typeRef, getJavadoc(constant), true, true));
 			}
 			
 			members.add(new Method("valueOf", typeRef,
@@ -128,8 +128,10 @@ public class AstGenerator {
 		List<TypeRef> interfaces;
 		// Overrides of methods from non-public types are not overrides from TS point of view
 		Set<String> privateOverrides = new HashSet<>();
+		boolean isAbstract = false;
 		if (type.isClassOrInterfaceDeclaration()) {
 			ClassOrInterfaceDeclaration decl = type.asClassOrInterfaceDeclaration();
+			isAbstract = decl.isAbstract();
 			typeKind = decl.isInterface() ? TypeDefinition.Kind.INTERFACE : TypeDefinition.Kind.CLASS;
 			
 			PublicFilterResult extendedResult = filterPublicTypes(decl.getExtendedTypes());
@@ -178,7 +180,7 @@ public class AstGenerator {
 		
 		// Create type definition
 		String javadoc = getJavadoc(type);
-		return Optional.of(new TypeDefinition(javadoc, type.isStatic(), typeRef, typeKind,
+		return Optional.of(new TypeDefinition(javadoc, type.isStatic(), typeRef, typeKind, isAbstract,
 				superTypes, interfaces, members));
 	}
 	
@@ -285,12 +287,12 @@ public class AstGenerator {
 		if (vars.size() == 1) {
 			ResolvedFieldDeclaration resolvedField = field.resolve();
 			members.add(new Field(resolvedField.getName(), TypeRef.fromType(resolvedField.getType(), nullable),
-					getJavadoc(member), field.isStatic()));
+					getJavadoc(member), field.isStatic(), field.isFinal()));
 		} else { // Symbol solver can't resolve this for us
 			for (VariableDeclarator var : vars) {
 				ResolvedValueDeclaration resolvedVar = var.resolve();
 				members.add(new Field(resolvedVar.getName(), TypeRef.fromType(resolvedVar.getType(), nullable),
-						getJavadoc(member), field.isStatic()));
+						getJavadoc(member), field.isStatic(), field.isFinal()));
 			}
 		}
 	}

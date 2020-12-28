@@ -23,6 +23,11 @@ public class TypeDefinition extends Member {
 	public final Kind kind;
 	
 	/**
+	 * If this type is abstract.
+	 */
+	public final boolean isAbstract;
+	
+	/**
 	 * Superclasses (and interfaces, if this is an interface) of this type.
 	 */
 	public final List<TypeRef> superTypes;
@@ -37,11 +42,12 @@ public class TypeDefinition extends Member {
 	 */
 	public final List<Member> members;
 
-	public TypeDefinition(String javadoc, boolean isStatic, TypeRef ref, Kind kind, List<TypeRef> superTypes,
-			List<TypeRef> interfaces, List<Member> members) {
+	public TypeDefinition(String javadoc, boolean isStatic, TypeRef ref, Kind kind, boolean isAbstract,
+			List<TypeRef> superTypes, List<TypeRef> interfaces, List<Member> members) {
 		super(javadoc, isStatic);
 		this.ref = ref;
 		this.kind = kind;
+		this.isAbstract = isAbstract;
 		this.superTypes = superTypes;
 		this.interfaces = interfaces;
 		this.members = members;
@@ -54,6 +60,11 @@ public class TypeDefinition extends Member {
 		superTypes.forEach(type -> type.walk(visitor));
 		interfaces.forEach(type -> type.walk(visitor));
 		members.forEach(member -> member.walk(visitor));
+	}
+
+	@Override
+	public String name() {
+		return ref.name();
 	}
 
 }

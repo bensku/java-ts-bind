@@ -48,4 +48,9 @@ public class Method extends Member {
 		typeParams.forEach(param -> param.walk(visitor));
 	}
 
+	@Override
+	public String name() {
+		return name;
+	}
+
 }
