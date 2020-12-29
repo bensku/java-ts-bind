@@ -258,17 +258,15 @@ public class AstGenerator {
 		TypeRef returnType = TypeRef.fromType(method.getReturnType(), nullableReturn);
 		String methodDoc = getJavadoc(member);
 		boolean override = !privateOverrides.contains(name) && member.getAnnotationByClass(Override.class).isPresent();
-		// TODO check if GraalJS works with "is" for boolean getter too
+		// boolean getters and setters are kept as regular methods to prevent confusing naming
 		if (name.length() > 3 && name.startsWith("get") && returnType != TypeRef.VOID
-				&& method.getNumberOfParams() == 0 && method.getTypeParameters().isEmpty()) {
+				&& returnType != TypeRef.BOOLEAN && method.getNumberOfParams() == 0
+				&& method.getTypeParameters().isEmpty()) {
 			// GraalJS will make this getter work, somehow
 			return new Getter(name, returnType, methodDoc, method.isStatic(), override);
-		} else if (name.length() > 2 && name.startsWith("is") && returnType == TypeRef.BOOLEAN
-				&& method.getNumberOfParams() == 0 && method.getTypeParameters().isEmpty()) {
-			// Boolean getters are also supported
-			return new Getter(name, returnType, methodDoc, method.isStatic(), override);
-		} else if (name.length() > 4 && name.startsWith("set") && method.getReturnType().isVoid()
-				&& method.getNumberOfParams() == 1 && method.getTypeParameters().isEmpty()) {
+		} else if (name.length() > 4 && name.startsWith("set") && method.getNumberOfParams() == 1
+				&& TypeRef.fromType(method.getParam(0).getType()) != TypeRef.BOOLEAN
+				&& method.getTypeParameters().isEmpty()) {
 			// GraalJS will make this setter work, somehow
 			return new Setter(name, TypeRef.fromType(method.getParam(0).getType(),
 					nullableParams[0]), methodDoc, method.isStatic(), override);
