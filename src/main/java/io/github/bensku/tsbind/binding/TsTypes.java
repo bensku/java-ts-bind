@@ -9,13 +9,13 @@ public class TsTypes {
 			out.print("void");
 		} else if (node == TypeRef.BOOLEAN) {
 			out.print("boolean");
-		} else if (node == TypeRef.BYTE || node == TypeRef.CHAR || node == TypeRef.SHORT 
+		} else if (node == TypeRef.BYTE || node == TypeRef.SHORT 
 				|| node == TypeRef.INT || node == TypeRef.FLOAT
 				|| node == TypeRef.LONG || node == TypeRef.DOUBLE) {
 			// Closest TS type of most primitives is number
 			// FIXME GraalJS can't implicitly convert between all of these
 			out.print("number");
-		} else if (node == TypeRef.STRING) {
+		} else if (node == TypeRef.STRING || node == TypeRef.CHAR) {
 			out.print("string");
 		} else if (node == TypeRef.OBJECT) {
 			// Allow autoboxing JS boolean and number to Object
