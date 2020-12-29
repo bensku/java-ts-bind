@@ -264,7 +264,7 @@ public class AstGenerator {
 				&& method.getTypeParameters().isEmpty()) {
 			// GraalJS will make this getter work, somehow
 			return new Getter(name, returnType, methodDoc, method.isStatic(), override);
-		} else if (name.length() > 4 && name.startsWith("set") && method.getNumberOfParams() == 1
+		} else if (name.length() > 3 && name.startsWith("set") && method.getNumberOfParams() == 1
 				&& TypeRef.fromType(method.getParam(0).getType()) != TypeRef.BOOLEAN
 				&& method.getTypeParameters().isEmpty()) {
 			// GraalJS will make this setter work, somehow

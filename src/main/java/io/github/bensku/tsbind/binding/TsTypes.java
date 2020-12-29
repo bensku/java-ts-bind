@@ -1,29 +1,34 @@
 package io.github.bensku.tsbind.binding;
 
+import java.util.Optional;
+
 import io.github.bensku.tsbind.ast.TypeRef;
 
 public class TsTypes {
-
-	public static final TsGenerator<TypeRef.Simple> SIMPLE = (node, out) -> {
+	
+	public static Optional<String> primitiveName(TypeRef node) {
 		if (node == TypeRef.VOID) {
-			out.print("void");
+			return Optional.of("void");
 		} else if (node == TypeRef.BOOLEAN) {
-			out.print("boolean");
+			return Optional.of("boolean");
 		} else if (node == TypeRef.BYTE || node == TypeRef.SHORT 
 				|| node == TypeRef.INT || node == TypeRef.FLOAT
 				|| node == TypeRef.LONG || node == TypeRef.DOUBLE) {
 			// Closest TS type of most primitives is number
 			// FIXME GraalJS can't implicitly convert between all of these
-			out.print("number");
+			return Optional.of("number");
 		} else if (node == TypeRef.STRING || node == TypeRef.CHAR) {
-			out.print("string");
+			return Optional.of("string");
 		} else if (node == TypeRef.OBJECT) {
 			// Allow autoboxing JS boolean and number to Object
 			// Also helps with generic inheritance
-			out.print("any");
-		} else {
-			out.printType(node);
+			return Optional.of("any");
 		}
+		return Optional.empty();
+	}
+
+	public static final TsGenerator<TypeRef.Simple> SIMPLE = (node, out) -> {
+		primitiveName(node).ifPresentOrElse(out::print, () -> out.printType(node));
 	};
 	
 	public static final TsGenerator<TypeRef.Wildcard> WILDCARD = (node, out) -> {

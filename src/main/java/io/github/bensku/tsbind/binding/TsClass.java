@@ -3,6 +3,7 @@ package io.github.bensku.tsbind.binding;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -12,7 +13,6 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import io.github.bensku.tsbind.ast.Constructor;
 import io.github.bensku.tsbind.ast.Getter;
 import io.github.bensku.tsbind.ast.Member;
 import io.github.bensku.tsbind.ast.Method;
@@ -26,7 +26,39 @@ public class TsClass implements TsGenerator<TypeDefinition> {
 	
 	private TsClass() {}
 	
-	private class Members {
+	private static class MethodId {
+		String name;
+		List<String> paramTypes;
+		
+		MethodId(Method method) {
+			this.name = method.name();
+			this.paramTypes = method.params.stream().map(param -> param.type)
+					.map(type -> TsTypes.primitiveName(type).orElse(type.name()))
+					.collect(Collectors.toList());
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(name, paramTypes);
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) {
+				return true;
+			}
+			if (obj == null) {
+				return false;
+			}
+			if (getClass() != obj.getClass()) {
+				return false;
+			}
+			MethodId other = (MethodId) obj;
+			return Objects.equals(name, other.name) && Objects.equals(paramTypes, other.paramTypes);
+		}
+	}
+	
+	private static class Members {
 		
 		private final TypeDefinition type;
 		private final List<Member> members;
@@ -65,36 +97,6 @@ public class TsClass implements TsGenerator<TypeDefinition> {
 		 * We do exactly that.
 		 */
 		public void addMissingOverloads() {
-			class MethodId {
-				String name;
-				List<TypeRef> paramTypes;
-				
-				MethodId(Method method) {
-					this.name = method.name();
-					this.paramTypes = method.params.stream().map(param -> param.type).collect(Collectors.toList());
-				}
-
-				@Override
-				public int hashCode() {
-					return Objects.hash(name, paramTypes);
-				}
-
-				@Override
-				public boolean equals(Object obj) {
-					if (this == obj) {
-						return true;
-					}
-					if (obj == null) {
-						return false;
-					}
-					if (getClass() != obj.getClass()) {
-						return false;
-					}
-					MethodId other = (MethodId) obj;
-					return Objects.equals(name, other.name) && Objects.equals(paramTypes, other.paramTypes);
-				}
-			}
-			
 			// Figure out what methods we already have
 			Set<MethodId> methods = new HashSet<>();
 			for (Member member : members) {
@@ -191,6 +193,26 @@ public class TsClass implements TsGenerator<TypeDefinition> {
 		}
 		
 		/**
+		 * Many Java types are emitted as 'number', which can cause strange
+		 * duplicates to appear in TS types. This pass removes them.
+		 */
+		public void removeDuplicates() {
+			Set<MethodId> methods = new HashSet<>();
+			Iterator<Member> it = members.iterator();
+			while (it.hasNext()) {
+				Member member = it.next();
+				if (member instanceof Method) {
+					MethodId id = new MethodId((Method) member);
+					if (methods.contains(id)) {
+						it.remove(); // Duplicate, remove it
+					} else {
+						methods.add(id); // First occurrance
+					}
+				}
+			}
+		}
+		
+		/**
 		 * Transforms a TS getter/setter at given index to a normal method.
 		 * If the member there is not an accessor, nothing is done.
 		 * @param index Index.
@@ -282,6 +304,7 @@ public class TsClass implements TsGenerator<TypeDefinition> {
 		Members members = new Members(node, out);
 		members.addMissingOverloads();
 		members.fixInheritDoc();
+		members.removeDuplicates();
 		members.resolveConflicts();
 		
 		// Emit class members with some indentation
