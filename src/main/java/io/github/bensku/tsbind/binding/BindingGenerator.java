@@ -32,17 +32,17 @@ public class BindingGenerator implements AstConsumer<String> {
 	}
 	
 	@Override
-	public Stream<Result<String>> consume(Stream<TypeDefinition> types) {
+	public Stream<Result<String>> consume(Map<String, TypeDefinition> types) {
 		Map<String, TsModule> modules = new HashMap<>();
 		
-		types.forEach(type -> addType(modules, type));
+		types.values().forEach(type -> addType(modules, type));
 		
 		// Put modules in declarations based on their base packages (tld.domain)
 		Map<String, StringBuilder> outputs = new HashMap<>();
 		for (TsModule module : modules.values()) {
 			String basePkg = getBasePkg(module.name()).replace('.', '_');
 			StringBuilder out = outputs.computeIfAbsent(basePkg, key -> new StringBuilder());
-			module.write(out);
+			module.write(types, out);
 		}
 		return outputs.entrySet().stream().map(entry
 				-> new Result<>(entry.getKey() + ".d.ts", entry.getValue().toString()));

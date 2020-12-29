@@ -3,6 +3,7 @@ package io.github.bensku.tsbind.binding;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.jsoup.Jsoup;
 
@@ -63,13 +64,19 @@ public class TsEmitter {
 	 */
 	private final Map<Class<?>, TsGenerator<?>> generators;
 	
-	public TsEmitter(String indentation, Map<TypeRef, String> typeNames) {
+	/**
+	 * Type lookup table.
+	 */
+	private final Map<String, TypeDefinition> types;
+	
+	public TsEmitter(String indentation, Map<TypeRef, String> typeNames, Map<String, TypeDefinition> types) {
 		this.output = new StringBuilder();
 		this.indentation = indentation;
 		this.indenter = new Indenter();
 		this.indentStr = "";
 		this.typeNames = typeNames;
 		this.generators = new HashMap<>();
+		this.types = types;
 		registerGenerators();
 	}
 	
@@ -91,6 +98,11 @@ public class TsEmitter {
 		addGenerator(Constructor.class, TsMembers.CONSTRUCTOR);
 		addGenerator(Getter.class, TsMembers.GETTER);
 		addGenerator(Setter.class, TsMembers.SETTER);
+	}
+	
+	public Optional<TypeDefinition> resolveType(TypeRef ref) {
+		// TODO inner class support
+		return Optional.ofNullable(types.get(ref.name()));
 	}
 	
 	public Indenter startBlock() {

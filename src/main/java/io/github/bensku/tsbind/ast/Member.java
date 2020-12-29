@@ -7,7 +7,7 @@ public abstract class Member implements AstNode {
 	/**
 	 * Javadoc of this member, if it exists.
 	 */
-	public final Optional<String> javadoc;
+	public Optional<String> javadoc;
 	
 	/**
 	 * Whether or not this member is static.

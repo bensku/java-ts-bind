@@ -2,11 +2,17 @@ package io.github.bensku.tsbind.binding;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import io.github.bensku.tsbind.ast.Constructor;
 import io.github.bensku.tsbind.ast.Getter;
 import io.github.bensku.tsbind.ast.Member;
 import io.github.bensku.tsbind.ast.Method;
@@ -22,10 +28,166 @@ public class TsClass implements TsGenerator<TypeDefinition> {
 	
 	private class Members {
 		
+		private final TypeDefinition type;
 		private final List<Member> members;
 		
-		public Members(TypeDefinition type) {
+		/**
+		 * Not for printing, we just need to access some data.
+		 */
+		private final TsEmitter emitter;
+		
+		public Members(TypeDefinition type, TsEmitter emitter) {
+			this.type = type;
 			this.members = type.members;
+			this.emitter = emitter;
+		}
+		
+		private void visitSupertypes(TypeDefinition type, Consumer<TypeDefinition> visitor) {
+			// Call visitor only on supertypes, not the type initially given as parameter
+			for (TypeRef ref : type.superTypes) {
+				Optional<TypeDefinition> def = emitter.resolveType(ref);
+				def.ifPresent(d -> {
+					visitor.accept(d);
+					visitSupertypes(d, visitor);
+				});
+			}
+			for (TypeRef ref : type.interfaces) {
+				Optional<TypeDefinition> def = emitter.resolveType(ref);
+				def.ifPresent(d -> {
+					visitor.accept(d);
+					visitSupertypes(d, visitor);
+				});
+			}
+		}
+		
+		/**
+		 * TypeScript removes inherited overloads unless they're re-specified.
+		 * We do exactly that.
+		 */
+		public void addMissingOverloads() {
+			class MethodId {
+				String name;
+				List<TypeRef> paramTypes;
+				
+				MethodId(Method method) {
+					this.name = method.name();
+					this.paramTypes = method.params.stream().map(param -> param.type).collect(Collectors.toList());
+				}
+
+				@Override
+				public int hashCode() {
+					return Objects.hash(name, paramTypes);
+				}
+
+				@Override
+				public boolean equals(Object obj) {
+					if (this == obj) {
+						return true;
+					}
+					if (obj == null) {
+						return false;
+					}
+					if (getClass() != obj.getClass()) {
+						return false;
+					}
+					MethodId other = (MethodId) obj;
+					return Objects.equals(name, other.name) && Objects.equals(paramTypes, other.paramTypes);
+				}
+			}
+			
+			// Figure out what methods we already have
+			Set<MethodId> methods = new HashSet<>();
+			for (Member member : members) {
+				if (member instanceof Method) {
+					methods.add(new MethodId((Method) member));
+				}
+			}
+			
+			// Visit supertypes and interfaces to see what we're missing
+			visitSupertypes(type, parent -> {
+				for (Member member : parent.members) {
+					if (member instanceof Method && type.hasMember(member.name())) {
+						// We have a member with same name
+						// If it has different signature, we need to copy the missing overload
+						if (!methods.contains(new MethodId((Method) member))) {
+							members.add(member);
+						}
+					}
+				}
+			});
+		}
+
+		
+		/**
+		 * Resolves the type which might contain the overridden method.
+		 * @param type Root type.
+		 * @param method Overriding method.
+		 * @return Type definition, if found.
+		 */
+		private Optional<TypeDefinition> resolveOverrideSource(TypeRef type, Method method) {
+			Optional<TypeDefinition> opt = emitter.resolveType(type);
+			if (opt.isEmpty()) {
+				return Optional.empty(); // Nothing here...
+			}
+			TypeDefinition def = opt.orElseThrow();
+			
+			// Check if type we're checking now has it
+			if (def.hasMember(method.name())) {
+				return Optional.of(def);
+			}
+			
+			// No? Recursively check supertypes and interfaces, maybe they have it
+			for (TypeRef parent : def.superTypes) {
+				Optional<TypeDefinition> result = resolveOverrideSource(parent, method);
+				if (result.isPresent()) {
+					return result;
+				}
+			}
+			for (TypeRef parent : def.interfaces) {
+				Optional<TypeDefinition> result = resolveOverrideSource(parent, method);
+				if (result.isPresent()) {
+					return result;
+				}
+			}
+			return Optional.empty(); // Didn't find it
+		}
+				
+		/**
+		 * Finds an interface method that the given method overrides.
+		 * @param member Method to find overrides for.
+		 * @return Overridden member, if found.
+		 */
+		private Optional<Member> resolveInterfaceOverride(Method method) {
+			if (!method.isOverride) {
+				return Optional.empty();
+			}
+			// Don't iterate over supertypes, only interfaces requested
+			for (TypeRef parent : type.interfaces) {
+				Optional<TypeDefinition> result = resolveOverrideSource(parent, method);
+				if (result.isPresent()) {
+					for (Member m : result.get().members) {
+						if (m.getClass().equals(method.getClass()) && m.name().equals(method.name())) {
+							return Optional.of(m); // Same name, same type -> found it!
+						}
+					}
+				}
+			}
+			return Optional.empty();
+		}
+		
+		/**
+		 * Manually copy inherited Javadoc from superclasses that our class
+		 * (not interface) can't extend.
+		 */
+		public void fixInheritDoc() {
+			// TODO Javadoc with overrides of overrides
+			for (Member member : members) {
+				if (!member.isStatic && member instanceof Method && member.javadoc.isEmpty()) {
+					resolveInterfaceOverride((Method) member).ifPresent(override -> {
+						override.javadoc.ifPresent(doc -> member.javadoc = Optional.of(doc));
+					});
+				}
+			}
 		}
 		
 		/**
@@ -72,6 +234,7 @@ public class TsClass implements TsGenerator<TypeDefinition> {
 						continue; // Getter/setter pair, no conflict
 					}
 				}
+				// Do not touch other kinds of conflicts - overloaded normal methods are ok
 				
 				// Transform getters and setters back to normal methods
 				for (int index : conflicts) {
@@ -116,7 +279,9 @@ public class TsClass implements TsGenerator<TypeDefinition> {
 		}
 		
 		// Prepare to emit members
-		Members members = new Members(node);
+		Members members = new Members(node, out);
+		members.addMissingOverloads();
+		members.fixInheritDoc();
 		members.resolveConflicts();
 		
 		// Emit class members with some indentation

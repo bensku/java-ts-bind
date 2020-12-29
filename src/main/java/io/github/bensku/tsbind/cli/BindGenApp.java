@@ -5,7 +5,9 @@ import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -47,7 +49,8 @@ public class BindGenApp {
 				.filter(f -> !f.getFileName().toString().equals("package-info.java"))
 				.filter(f -> isIncluded(inputDir.relativize(f).toString().replace(File.separatorChar, '.'),
 						args.include, args.exclude))) {
-			Stream<TypeDefinition> types = files.map(path -> {
+			Map<String, TypeDefinition> types = new HashMap<>();
+			files.map(path -> {
 				String name = inputDir.relativize(path).toString().replace('/', '.');
 				name = name.substring(0, name.length() - 5); // Strip .java
 				try {
@@ -57,7 +60,7 @@ public class BindGenApp {
 					throw new RuntimeException(e);
 				}
 			}).map(astGenerator::parseType)
-			.flatMap(Optional::stream);
+			.flatMap(Optional::stream).forEach(type -> types.put(type.name(), type));
 			
 			Stream<Result<String>> results = args.format.consumer.consume(types);
 			results.forEach(result -> {

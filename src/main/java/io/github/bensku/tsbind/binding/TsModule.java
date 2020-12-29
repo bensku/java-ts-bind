@@ -37,7 +37,7 @@ public class TsModule {
 		types.add(type);
 	}
 	
-	public void write(StringBuilder sb) {
+	public void write(Map<String, TypeDefinition> typeTable, StringBuilder sb) {
 		sb.append("declare module '").append(name).append("' {\n");
 		
 		class Import {
@@ -82,7 +82,7 @@ public class TsModule {
 		}
 		
 		// Generate classes of this module
-		TsEmitter emitter = new TsEmitter("  ", typeNames);
+		TsEmitter emitter = new TsEmitter("  ", typeNames, typeTable);
 		types.forEach(emitter::print);
 		sb.append(emitter.toString());
 		

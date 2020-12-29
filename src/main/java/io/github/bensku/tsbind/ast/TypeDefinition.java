@@ -1,6 +1,8 @@
 package io.github.bensku.tsbind.ast;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Consumer;
 
 public class TypeDefinition extends Member {
@@ -41,6 +43,11 @@ public class TypeDefinition extends Member {
 	 * List of members (methods, fields, inner types) of this type.
 	 */
 	public final List<Member> members;
+	
+	/**
+	 * Members that this type has.
+	 */
+	private final Set<String> memberNames;
 
 	public TypeDefinition(String javadoc, boolean isStatic, TypeRef ref, Kind kind, boolean isAbstract,
 			List<TypeRef> superTypes, List<TypeRef> interfaces, List<Member> members) {
@@ -51,6 +58,12 @@ public class TypeDefinition extends Member {
 		this.superTypes = superTypes;
 		this.interfaces = interfaces;
 		this.members = members;
+		this.memberNames = new HashSet<>();
+		members.stream().map(Member::name).forEach(memberNames::add);
+	}
+	
+	public boolean hasMember(String name) {
+		return memberNames.contains(name);
 	}
 
 	@Override

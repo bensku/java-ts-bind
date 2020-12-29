@@ -1,5 +1,6 @@
 package io.github.bensku.tsbind;
 
+import java.util.Map;
 import java.util.stream.Stream;
 
 import io.github.bensku.tsbind.ast.TypeDefinition;
@@ -35,5 +36,5 @@ public interface AstConsumer<T> {
 	 * @param types Stream of types.
 	 * @return Stream of results.
 	 */
-	Stream<Result<T>> consume(Stream<TypeDefinition> types);
+	Stream<Result<T>> consume(Map<String, TypeDefinition> types);
 }
