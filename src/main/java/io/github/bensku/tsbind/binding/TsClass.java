@@ -110,6 +110,11 @@ public class TsClass implements TsGenerator<TypeDefinition> {
 		}
 		out.println(" {");
 		
+		// If this is Iterable, make types extending this iterable
+		if (node.name().equals("java.lang.Iterable")) {
+			out.println("  [Symbol.iterator](): globalThis.Iterator<T>;");
+		}
+		
 		// Prepare to emit members
 		Members members = new Members(node);
 		members.resolveConflicts();
