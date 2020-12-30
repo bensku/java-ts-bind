@@ -24,7 +24,8 @@ public abstract class TypeRef implements AstNode {
 	public static final Simple DOUBLE = new Simple("double");
 	
 	public static final Simple OBJECT = new Simple("java.lang.Object");
-	public static final Simple STRING =  new Simple("java.lang.String");
+	public static final Simple STRING = new Simple("java.lang.String");
+	public static final Simple LIST = new Simple("java.util.List");
 	
 	public static TypeRef fromType(ResolvedType type, boolean nullable) {
 		if (nullable) {

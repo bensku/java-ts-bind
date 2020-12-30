@@ -1,5 +1,6 @@
 package io.github.bensku.tsbind.binding;
 
+import java.util.List;
 import java.util.Optional;
 
 import io.github.bensku.tsbind.ast.TypeRef;
@@ -37,8 +38,16 @@ public class TsTypes {
 	};
 	
 	public static final TsGenerator<TypeRef.Parametrized> PARAMETRIZED = (node, out) -> {
-		out.print(node.baseType());
-		out.print("<").print(node.typeParams(), ", ").print(">");
+		TypeRef base = node.baseType();
+		List<TypeRef> params = node.typeParams();
+		
+		// Convert java.util.List<X> to X[] (JS array) when we can do that safely
+		if (base.equals(TypeRef.LIST) && params.size() == 1) {
+			out.print(params.get(0)).print("[]");
+			return;
+		}
+		out.print(base);
+		out.print("<").print(params, ", ").print(">");
 	};
 	
 	public static final TsGenerator<TypeRef.Array> ARRAY = (node, out) -> {
