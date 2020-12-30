@@ -174,7 +174,7 @@ public class AstGenerator {
 			} else if (member.isMethodDeclaration()) {
 				members.add(processMethod(member.asMethodDeclaration(), privateOverrides));
 			} else if (member.isFieldDeclaration()) {
-				processField(members, member.asFieldDeclaration());
+				processField(members, member.asFieldDeclaration(), typeKind == TypeDefinition.Kind.INTERFACE);
 			}
 		}
 		
@@ -278,19 +278,21 @@ public class AstGenerator {
 		}
 	}
 	
-	private void processField(List<Member> members, FieldDeclaration member) {
+	private void processField(List<Member> members, FieldDeclaration member, boolean isInterface) {
 		FieldDeclaration field = member.asFieldDeclaration();
 		boolean nullable = field.isAnnotationPresent("Nullable");
 		NodeList<VariableDeclarator> vars = field.getVariables();
+		boolean isStatic = isInterface || field.isStatic();
+		boolean isFinal = isInterface || field.isFinal();
 		if (vars.size() == 1) {
 			ResolvedFieldDeclaration resolvedField = field.resolve();
 			members.add(new Field(resolvedField.getName(), TypeRef.fromType(resolvedField.getType(), nullable),
-					getJavadoc(member), field.isStatic(), field.isFinal()));
+					getJavadoc(member), isStatic, isFinal));
 		} else { // Symbol solver can't resolve this for us
 			for (VariableDeclarator var : vars) {
 				ResolvedValueDeclaration resolvedVar = var.resolve();
 				members.add(new Field(resolvedVar.getName(), TypeRef.fromType(resolvedVar.getType(), nullable),
-						getJavadoc(member), field.isStatic(), field.isFinal()));
+						getJavadoc(member), isStatic, isFinal));
 			}
 		}
 	}
