@@ -321,7 +321,9 @@ public class TsClass implements TsGenerator<TypeDefinition> {
 			out.print("export interface ");
 			emitName(node.ref.simpleName(), node.ref, out);
 			out.print(" extends ");
-			out.print(superTypes, ", ");
+			// FIXME quick hack to get List -> array conversion out of supertypes
+			out.print(superTypes.stream()
+					.filter(type -> !type.baseType().equals(TypeRef.LIST)).collect(Collectors.toList()), ", ");
 			out.println(" {}");
 		}
 	}
