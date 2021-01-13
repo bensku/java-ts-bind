@@ -22,6 +22,11 @@ jobs:
           --in /usr/lib/jvm/openjdk-11/src.zip --out java-core-types --offset java.base
           --include java.lang,java.util,java.io,java.nio
           --exclude java.lang.Math,java.lang.StrictMath,java.util.concurrent,java.util.spi
+      - name: Generate java.net.http types
+        run: >-
+          java -jar build/libs/java-ts-bind-all.jar
+          --in /usr/lib/jvm/openjdk-11/src.zip --out httpclient-types --offset java.net.http
+          --exclude jdk
       - uses: actions/setup-node@master
         with:
           registry-url: 'https://registry.npmjs.org'
@@ -30,6 +35,13 @@ jobs:
         run: |
           sed -i "s/VERSION/11.0.8-$(git rev-parse --short $GITHUB_SHA)/g" java-core-types/package.json
           npm publish --access=public java-core-types
+        if: github.ref == 'refs/heads/master'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
+      - name: Publish HttpClient types
+        run: |
+          sed -i "s/VERSION/11.0.8-$(git rev-parse --short $GITHUB_SHA)/g" httpclient-types/package.json
+          npm publish --access=public httpclient-types
         if: github.ref == 'refs/heads/master'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}

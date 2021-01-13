@@ -1,0 +1,11 @@
+{
+  "name": "@bensku/httpclient-types",
+  "version": "VERSION",
+  "description": "java.net.http types",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/bensku/java-ts-bind.git",
+    "directory": "httpclient-types"
+  },
+  "author": "bensku"
+}
