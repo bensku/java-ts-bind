@@ -51,7 +51,7 @@ public class TypeDefinition extends Member {
 
 	public TypeDefinition(String javadoc, boolean isStatic, TypeRef ref, Kind kind, boolean isAbstract,
 			List<TypeRef> superTypes, List<TypeRef> interfaces, List<Member> members) {
-		super(javadoc, isStatic);
+		super(javadoc, true, isStatic); // Private types are not processed at all
 		this.ref = ref;
 		this.kind = kind;
 		this.isAbstract = isAbstract;
@@ -72,7 +72,12 @@ public class TypeDefinition extends Member {
 		visitor.accept(ref);
 		superTypes.forEach(type -> type.walk(visitor));
 		interfaces.forEach(type -> type.walk(visitor));
-		members.forEach(member -> member.walk(visitor));
+		members.forEach(member -> {
+			// Don't walk into inner types, they go to separate TS modules
+			if (!(member instanceof TypeDefinition)) {
+				member.walk(visitor);
+			}
+		});
 	}
 
 	@Override

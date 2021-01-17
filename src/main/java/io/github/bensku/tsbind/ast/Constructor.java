@@ -5,8 +5,8 @@ import java.util.List;
 
 public class Constructor extends Method {
 
-	public Constructor(String name, TypeRef returnType, List<Parameter> params, String javadoc) {
-		super(name, returnType, params, Collections.emptyList(), javadoc, false, false);
+	public Constructor(String name, List<Parameter> params, String javadoc, boolean isPublic) {
+		super(name, TypeRef.VOID, params, Collections.emptyList(), javadoc, isPublic, false, false);
 	}
 
 	

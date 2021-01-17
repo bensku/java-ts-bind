@@ -31,8 +31,8 @@ public class Method extends Member {
 	public final boolean isOverride;
 	
 	public Method(String name, TypeRef returnType, List<Parameter> params, List<TypeRef> typeParams, String javadoc,
-			boolean isStatic, boolean isOverride) {
-		super(javadoc, isStatic);
+			boolean isPublic, boolean isStatic, boolean isOverride) {
+		super(javadoc, isPublic, isStatic);
 		this.name = name;
 		this.returnType = returnType;
 		this.params = params;

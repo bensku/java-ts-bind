@@ -20,8 +20,8 @@ public class Field extends Member {
 	 */
 	public final boolean isFinal;
 	
-	public Field(String name, TypeRef type, String javadoc, boolean isStatic, boolean isFinal) {
-		super(javadoc, isStatic);
+	public Field(String name, TypeRef type, String javadoc, boolean isPublic, boolean isStatic, boolean isFinal) {
+		super(javadoc, isPublic, isStatic);
 		Objects.requireNonNull(name);
 		Objects.requireNonNull(type);
 		this.name = name;

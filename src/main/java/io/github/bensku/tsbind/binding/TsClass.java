@@ -61,6 +61,10 @@ public class TsClass implements TsGenerator<TypeDefinition> {
 	private static class Members {
 		
 		private final TypeDefinition type;
+		
+		/**
+		 * All public members.
+		 */
 		private final List<Member> members;
 		
 		/**
@@ -70,7 +74,9 @@ public class TsClass implements TsGenerator<TypeDefinition> {
 		
 		public Members(TypeDefinition type, TsEmitter emitter) {
 			this.type = type;
-			this.members = type.members;
+			this.members = type.members.stream()
+					.filter(member -> member.isPublic)
+					.collect(Collectors.toList());
 			this.emitter = emitter;
 		}
 		
@@ -222,12 +228,12 @@ public class TsClass implements TsGenerator<TypeDefinition> {
 			if (member instanceof Getter) {
 				Getter getter = (Getter) member;
 				Method method = new Method(getter.originalName, getter.returnType, getter.params,
-						getter.typeParams, getter.javadoc.orElse(null), getter.isStatic, getter.isOverride);
+						getter.typeParams, getter.javadoc.orElse(null), getter.isPublic, getter.isStatic, getter.isOverride);
 				members.set(index, method);
 			} else if (member instanceof Setter) {
 				Setter setter = (Setter) member;
 				Method method = new Method(setter.originalName, setter.returnType, setter.params,
-						setter.typeParams, setter.javadoc.orElse(null), setter.isStatic, setter.isOverride);
+						setter.typeParams, setter.javadoc.orElse(null), setter.isPublic, setter.isStatic, setter.isOverride);
 				members.set(index, method);
 			} // other kinds of conflicts we don't touch
 		}

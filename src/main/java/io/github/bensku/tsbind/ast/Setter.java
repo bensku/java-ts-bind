@@ -6,14 +6,18 @@ import java.util.List;
 public class Setter extends Method {
 
 	public static String setterName(String methodName) {
-		return methodName.substring(3, 4).toLowerCase() + methodName.substring(4);
+		if (methodName.startsWith("set")) {
+			return methodName.substring(3, 4).toLowerCase() + methodName.substring(4);
+		} else {
+			return methodName;
+		}
 	}
 	
 	public final String originalName;
 
-	public Setter(String name, TypeRef type, String javadoc, boolean isStatic, boolean isOverride) {
+	public Setter(String name, TypeRef type, String javadoc, boolean isPublic, boolean isStatic, boolean isOverride) {
 		super(setterName(name), TypeRef.VOID, List.of(new Parameter(setterName(name), type, false)),
-				Collections.emptyList(), javadoc, isStatic, isOverride);
+				Collections.emptyList(), javadoc, isPublic, isStatic, isOverride);
 		this.originalName = name;
 	}
 }
