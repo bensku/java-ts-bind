@@ -178,8 +178,33 @@ public class TsEmitter {
 	
 	private String processJavadoc(String doc) {
 		// Strip HTML out; TODO markdown generation
-		return Jsoup.parseBodyFragment(doc).wholeText()
+		String text = Jsoup.parseBodyFragment(doc).wholeText()
 				.replace("*/", "* /"); // No surprise Javadoc ends
+		
+		// Replace {@code ...} with Markdown code blocks
+		StringBuilder sb = new StringBuilder();
+		int start = 0;
+		int end = -1;
+		while (true) {
+			start = text.indexOf("{@code", end + 1);
+			if (start == -1) {
+				break;
+			}
+			sb.append(text.substring(end + 1, start)); // Text between previous and this code block
+			int codeStart = start + "{@code".length() + 1;
+			end = text.indexOf('}', codeStart);
+			String code = text.substring(codeStart, end);
+			if (code.contains("\n")) {
+				// Multiline code blocks are not yet supported
+				// (it can be difficult to detect the ending })
+				sb.append(text.substring(start, end + 1));
+			} else {
+				sb.append('`').append(code).append('`');
+			}
+		}
+		sb.append(text.substring(end + 1)); // Rest of Javadoc
+		
+		return sb.toString();
 	}
 	
 	private void javadocContent(String line) {
@@ -187,6 +212,11 @@ public class TsEmitter {
 	}
 	
 	public TsEmitter javadoc(String doc) {
+		if (doc.length() < 50 && doc.contains("{@inheritDoc}")) {
+			// JSDoc doesn't have @inheritDoc, but missing docs are inherited
+			// So we omit Javadoc that is not likely to contain anything of value
+			return this;
+		}
 		doc = processJavadoc(doc);
 		indent().println("/**");
 		doc.lines().map(String::stripLeading).filter(line -> !line.isEmpty()).forEach(this::javadocContent);
