@@ -279,6 +279,11 @@ public class AstGenerator {
 	}
 	
 	private boolean isPublic(ResolvedReferenceTypeDeclaration type) {
+		// Special case for functional interfaces that are converted to function types
+		// (you obviously can't extend those in TypeScript)
+		if (type.isFunctionalInterface()) {
+			return false;
+		}
 		if (type instanceof HasAccessSpecifier) {
 			return ((HasAccessSpecifier) type).accessSpecifier() == AccessSpecifier.PUBLIC;
 		}

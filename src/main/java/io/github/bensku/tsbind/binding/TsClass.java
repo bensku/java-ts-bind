@@ -282,6 +282,22 @@ public class TsClass implements TsGenerator<TypeDefinition> {
 		node.javadoc.ifPresent(out::javadoc);
 		// Class declaration, including superclass and interfaces
 		
+		// Transform functional interfaces into function signatures
+		// For now, only do this if there are no (static) methods or fields
+		if (node.kind == TypeDefinition.Kind.INTERFACE
+				&& node.interfaces.isEmpty() && node.superTypes.isEmpty()
+				&& node.members.size() == 1) {
+			Member member = node.members.get(0);
+			if (!member.isStatic && member instanceof Method) {
+				out.print("export type ");
+				emitName(node.ref.simpleName(), node.ref, out);
+				out.print(" = ");
+				emitFunction((Method) member, out);
+				out.println(";");
+				return;
+			}
+		}
+		
 		out.print("export class ");
 		emitName(node.ref.simpleName(), node.ref, out);
 		
@@ -340,6 +356,13 @@ public class TsClass implements TsGenerator<TypeDefinition> {
 		if (type instanceof TypeRef.Parametrized) {
 			out.print("<").print(((TypeRef.Parametrized) type).typeParams(), ", ").print(">");
 		}
+	}
+	
+	private void emitFunction(Method method, TsEmitter out) {
+		out.print("(");
+		out.print(method.params, ", ");
+		out.print(") => ");
+		out.print(method.returnType);
 	}
 
 }
