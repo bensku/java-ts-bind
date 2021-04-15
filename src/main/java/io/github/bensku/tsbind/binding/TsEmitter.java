@@ -212,11 +212,6 @@ public class TsEmitter {
 	}
 	
 	public TsEmitter javadoc(String doc) {
-		if (doc.length() < 50 && doc.contains("{@inheritDoc}")) {
-			// JSDoc doesn't have @inheritDoc, but missing docs are inherited
-			// So we omit Javadoc that is not likely to contain anything of value
-			return this;
-		}
 		doc = processJavadoc(doc);
 		indent().println("/**");
 		doc.lines().map(String::stripLeading).filter(line -> !line.isEmpty()).forEach(this::javadocContent);

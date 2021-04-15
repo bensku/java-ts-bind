@@ -16,7 +16,8 @@ public class TypeDefinition extends Member {
 		CLASS,
 		INTERFACE,
 		ENUM,
-		ANNOTATION
+		ANNOTATION,
+		FUNCTIONAL_INTERFACE
 	}
 	
 	/**

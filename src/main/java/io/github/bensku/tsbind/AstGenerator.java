@@ -132,6 +132,12 @@ public class AstGenerator {
 			ClassOrInterfaceDeclaration decl = type.asClassOrInterfaceDeclaration();
 			isAbstract = decl.isAbstract();
 			typeKind = decl.isInterface() ? TypeDefinition.Kind.INTERFACE : TypeDefinition.Kind.CLASS;
+			if (typeKind == TypeDefinition.Kind.INTERFACE) {
+				// Make interface functional if annotated as such
+				if (type.resolve().hasAnnotation("FunctionalInterface")) {
+					typeKind = TypeDefinition.Kind.FUNCTIONAL_INTERFACE;
+				}
+			}
 			
 			PublicFilterResult extendedResult = filterPublicTypes(decl.getExtendedTypes());
 			PublicFilterResult implementedResult = filterPublicTypes(decl.getImplementedTypes());
@@ -281,7 +287,7 @@ public class AstGenerator {
 	private boolean isPublic(ResolvedReferenceTypeDeclaration type) {
 		// Special case for functional interfaces that are converted to function types
 		// (you obviously can't extend those in TypeScript)
-		if (type.isFunctionalInterface()) {
+		if (type.hasAnnotation("FunctionalInterface")) {
 			return false;
 		}
 		if (type instanceof HasAccessSpecifier) {

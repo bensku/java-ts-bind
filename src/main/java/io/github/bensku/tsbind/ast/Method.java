@@ -39,6 +39,15 @@ public class Method extends Member {
 		this.typeParams = typeParams;
 		this.isOverride = isOverride;
 	}
+	
+	/**
+	 * Original name of the method. For setters and getters, this is different
+	 * from the {@link #name()}.
+	 * @return Original name.
+	 */
+	public String originalName() {
+		return name;
+	}
 
 	@Override
 	public void walk(Consumer<AstNode> visitor) {

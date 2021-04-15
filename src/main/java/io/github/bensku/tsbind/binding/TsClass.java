@@ -31,7 +31,9 @@ public class TsClass implements TsGenerator<TypeDefinition> {
 		List<String> paramTypes;
 		
 		MethodId(Method method) {
-			this.name = method.name();
+			// Use Method#originalName() to avoid deleting getters/setters
+			// We have a separate pass for invalidating them back to normal methods
+			this.name = method.originalName();
 			this.paramTypes = method.params.stream().map(param -> param.type)
 					.map(type -> TsTypes.primitiveName(type).orElse(type.name()))
 					.collect(Collectors.toList());
@@ -184,13 +186,30 @@ public class TsClass implements TsGenerator<TypeDefinition> {
 		}
 		
 		/**
+		 * Checks if a member has valuable Javadoc.
+		 * @param member Member.
+		 * @return If the member is likely to have useful information in
+		 * its Javadoc.
+		 */
+		private boolean hasValuableJavadoc(Member member) {
+			Optional<String> javadoc = member.javadoc;
+			if (javadoc.isEmpty()) {
+				return false;
+			} else {
+				// Short Javadoc with @inheritDoc is unlikely to contain anything of value
+				String doc = javadoc.get();
+				return doc.length() > 50 || !doc.contains("{@inheritDoc}");
+			}
+		}
+		
+		/**
 		 * Manually copy inherited Javadoc from superclasses that our class
 		 * (not interface) can't extend.
 		 */
 		public void fixInheritDoc() {
 			// TODO Javadoc with overrides of overrides
 			for (Member member : members) {
-				if (!member.isStatic && member instanceof Method && member.javadoc.isEmpty()) {
+				if (!member.isStatic && member instanceof Method && !hasValuableJavadoc(member)) {
 					resolveInterfaceOverride((Method) member).ifPresent(override -> {
 						override.javadoc.ifPresent(doc -> member.javadoc = Optional.of(doc));
 					});
@@ -225,15 +244,10 @@ public class TsClass implements TsGenerator<TypeDefinition> {
 		 */
 		private void invalidateGetSet(int index) {
 			Member member = members.get(index);
-			if (member instanceof Getter) {
-				Getter getter = (Getter) member;
-				Method method = new Method(getter.originalName, getter.returnType, getter.params,
-						getter.typeParams, getter.javadoc.orElse(null), getter.isPublic, getter.isStatic, getter.isOverride);
-				members.set(index, method);
-			} else if (member instanceof Setter) {
-				Setter setter = (Setter) member;
-				Method method = new Method(setter.originalName, setter.returnType, setter.params,
-						setter.typeParams, setter.javadoc.orElse(null), setter.isPublic, setter.isStatic, setter.isOverride);
+			if (member instanceof Getter || member instanceof Setter) {
+				Method original = (Method) member;
+				Method method = new Method(original.originalName(), original.returnType, original.params,
+						original.typeParams, original.javadoc.orElse(null), original.isPublic, original.isStatic, original.isOverride);
 				members.set(index, method);
 			} // other kinds of conflicts we don't touch
 		}
@@ -246,6 +260,8 @@ public class TsClass implements TsGenerator<TypeDefinition> {
 			Map<String, List<Integer>> indices = new HashMap<>();
 			for (int i = 0; i < members.size(); i++) {
 				Member member = members.get(i);
+				if (member.name().contains("getCustomName"))
+					System.out.println(member + ", " + ((Method) member).returnType.simpleName());
 				indices.computeIfAbsent(member.name(), n -> new ArrayList<>()).add(i);
 			}
 			
@@ -284,9 +300,7 @@ public class TsClass implements TsGenerator<TypeDefinition> {
 		
 		// Transform functional interfaces into function signatures
 		// For now, only do this if there are no (static) methods or fields
-		if (node.kind == TypeDefinition.Kind.INTERFACE
-				&& node.interfaces.isEmpty() && node.superTypes.isEmpty()
-				&& node.members.size() == 1) {
+		if (node.kind == TypeDefinition.Kind.FUNCTIONAL_INTERFACE) {
 			Member member = node.members.get(0);
 			if (!member.isStatic && member instanceof Method) {
 				out.print("export type ");

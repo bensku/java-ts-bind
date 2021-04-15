@@ -25,17 +25,26 @@ import io.github.bensku.tsbind.ast.TypeDefinition;
 
 public class BindGenApp {
 	
-	public static void main(String... argv) throws IOException {
+	public static void main(String... argv) throws IOException, InterruptedException {
 		// Parse command-line arguments
 		Args args = new Args();
 		JCommander.newBuilder().addObject(args).build().parse(argv);
 		
+		// Download the --artifact from Maven if provided
+		Path inputPath;
+		if (args.artifact != null) {
+			MavenResolver resolver = new MavenResolver(args.repo);
+			inputPath = resolver.downloadSources(args.artifact);
+		} else {
+			inputPath = args.inputPath;
+		}
+		
 		// Create path to root of input files we have
 		Path inputDir;
-		if (Files.isDirectory(args.inputPath)) {
-			inputDir = args.inputPath.resolve(args.offset);
+		if (Files.isDirectory(inputPath)) {
+			inputDir = inputPath.resolve(args.offset);
 		} else { // Try to open a zip file
-			inputDir = FileSystems.newFileSystem(args.inputPath, null).getPath("/").resolve(args.offset);
+			inputDir = FileSystems.newFileSystem(inputPath, null).getPath("/").resolve(args.offset);
 		}
 		
 		// Prepare for AST generation

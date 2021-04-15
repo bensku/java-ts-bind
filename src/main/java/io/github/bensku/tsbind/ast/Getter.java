@@ -14,11 +14,15 @@ public class Getter extends Method {
 		}
 	}
 	
-	public final String originalName;
+	private final String originalName;
 
 	public Getter(String name, TypeRef type, String javadoc, boolean isPublic, boolean isStatic, boolean isOverride) {
 		super(getterName(name), type, Collections.emptyList(), Collections.emptyList(), javadoc, isPublic, isStatic, isOverride);
 		this.originalName = name;
+	}
+	
+	public String originalName() {
+		return originalName;
 	}
 
 }

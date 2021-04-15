@@ -4,13 +4,13 @@ plugins {
 }
 
 repositories {
-    jcenter()
+    mavenCentral()
 }
 
 dependencies {
-    compile 'com.github.javaparser:javaparser-symbol-solver-core:3.16.1'
+    compile 'com.github.javaparser:javaparser-symbol-solver-core:3.20.2'
     compile 'com.google.code.gson:gson:2.8.6'
-    compile 'com.beust:jcommander:1.71'
+    compile 'com.beust:jcommander:1.81'
     compile 'org.jsoup:jsoup:1.13.1'
 }
 

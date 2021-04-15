@@ -13,11 +13,15 @@ public class Setter extends Method {
 		}
 	}
 	
-	public final String originalName;
+	private final String originalName;
 
 	public Setter(String name, TypeRef type, String javadoc, boolean isPublic, boolean isStatic, boolean isOverride) {
 		super(setterName(name), TypeRef.VOID, List.of(new Parameter(setterName(name), type, false)),
 				Collections.emptyList(), javadoc, isPublic, isStatic, isOverride);
 		this.originalName = name;
+	}
+	
+	public String originalName() {
+		return originalName;
 	}
 }

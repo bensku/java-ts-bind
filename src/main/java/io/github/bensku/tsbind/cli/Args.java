@@ -26,11 +26,17 @@ public class Args {
 	@Parameter(names = "--format")
 	public OutputFormat format = OutputFormat.TS_TYPES;
 	
-	@Parameter(names = "--in", required = true)
+	@Parameter(names = "--in")
 	public Path inputPath;
 	
 	@Parameter(names = "--symbols")
-	public List<Path> symbolSources = Collections.emptyList();
+	public List<Path> symbolSources = List.of();
+	
+	@Parameter(names = "--repo")
+	public String repo;
+
+	@Parameter(names = "--artifact")
+	public String artifact;
 	
 	@Parameter(names = "--offset")
 	public String offset = "";
