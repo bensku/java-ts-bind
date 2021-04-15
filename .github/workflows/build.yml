@@ -11,7 +11,7 @@ jobs:
         with:
           java-version: 11
       - name: Gradle build
-        run: gradle shadowJar
+        run: ./gradlew shadowJar
       - name: Download JDK sources
         run: |
           sudo apt-get update
