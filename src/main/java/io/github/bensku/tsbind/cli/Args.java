@@ -29,7 +29,7 @@ public class Args {
 	public Path inputPath;
 	
 	@Parameter(names = "--symbols")
-	public List<Path> symbolSources = List.of();
+	public List<Path> symbols = List.of();
 	
 	@Parameter(names = "--repo")
 	public String repo;
@@ -51,4 +51,7 @@ public class Args {
 	
 	@Parameter(names = "--out")
 	public Path outDir = Path.of("");
+	
+	@Parameter(names = "--packageJson")
+	public Path packageJson;
 }

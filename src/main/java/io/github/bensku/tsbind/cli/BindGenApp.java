@@ -17,6 +17,10 @@ import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.JarTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
+import com.google.gson.GsonBuilder;
+import com.google.gson.TypeAdapter;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonWriter;
 
 import io.github.bensku.tsbind.AstConsumer.Result;
 import io.github.bensku.tsbind.AstGenerator;
@@ -29,6 +33,27 @@ public class BindGenApp {
 		// Parse command-line arguments
 		Args args = new Args();
 		JCommander.newBuilder().addObject(args).build().parse(argv);
+		
+		if (args.packageJson != null) {
+			args = new GsonBuilder()
+					.registerTypeAdapter(Path.class, new TypeAdapter<Path>() {
+
+						@Override
+						public void write(JsonWriter out, Path value) throws IOException {
+							out.value(value.toString());
+						}
+
+						@Override
+						public Path read(JsonReader in) throws IOException {
+							return Path.of(in.nextString());
+						}
+					})
+					.create()
+					.fromJson(Files.readString(args.packageJson), PackageJson.class).tsbindOptions;
+			if (args == null) {
+				throw new IllegalArgumentException("missing tsbindOptions in --package");
+			}
+		}
 		
 		// Download the --artifact from Maven if provided
 		Path inputPath;
@@ -48,16 +73,19 @@ public class BindGenApp {
 		}
 		
 		// Prepare for AST generation
-		JavaParser parser = setupParser(args.symbolSources);
+		JavaParser parser = setupParser(args.symbols);
 		AstGenerator astGenerator = new AstGenerator(parser, args.blacklist);
 		
 		// Walk over input Java source files
+		List<String> include = args.include;
+		List<String> exclude = args.exclude;
+		Path outDir = args.outDir;
 		try (Stream<Path> files = Files.walk(inputDir)
 				.filter(Files::isRegularFile)
 				.filter(f -> f.getFileName().toString().endsWith(".java"))
 				.filter(f -> !f.getFileName().toString().equals("package-info.java"))
 				.filter(f -> isIncluded(inputDir.relativize(f).toString().replace(File.separatorChar, '.'),
-						args.include, args.exclude))) {
+						include, exclude))) {
 			Map<String, TypeDefinition> types = new HashMap<>();
 			files.map(path -> {
 				String name = inputDir.relativize(path).toString().replace('/', '.');
@@ -74,7 +102,7 @@ public class BindGenApp {
 			Stream<Result<String>> results = args.format.consumer.consume(types);
 			results.forEach(result -> {
 				try {
-					Files.writeString(args.outDir.resolve(result.name), result.result);
+					Files.writeString(outDir.resolve(result.name), result.result);
 				} catch (IOException e) {
 					// TODO handle this better
 					throw new RuntimeException(e);
