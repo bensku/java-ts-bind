@@ -1,7 +1,6 @@
 package io.github.bensku.tsbind.cli;
 
 import java.nio.file.Path;
-import java.util.Collections;
 import java.util.List;
 
 import com.beust.jcommander.Parameter;
@@ -45,7 +44,10 @@ public class Args {
 	public List<String> include = List.of("");
 	
 	@Parameter(names = "--exclude")
-	public List<String> exclude = Collections.emptyList();
+	public List<String> exclude = List.of();
+	
+	@Parameter(names = "--blacklist")
+	public List<String> blacklist = List.of();
 	
 	@Parameter(names = "--out")
 	public Path outDir = Path.of("");

@@ -6,6 +6,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import com.github.javaparser.JavaParser;
@@ -33,6 +35,7 @@ import com.github.javaparser.resolution.declarations.ResolvedReferenceTypeDeclar
 import com.github.javaparser.resolution.declarations.ResolvedValueDeclaration;
 import com.github.javaparser.resolution.types.ResolvedReferenceType;
 
+import io.github.bensku.tsbind.ast.AstNode;
 import io.github.bensku.tsbind.ast.Constructor;
 import io.github.bensku.tsbind.ast.Field;
 import io.github.bensku.tsbind.ast.Getter;
@@ -52,8 +55,15 @@ public class AstGenerator {
 
 	private final JavaParser parser;
 	
-	public AstGenerator(JavaParser parser) {
+	/**
+	 * Blacklisted type name fragments. Types that contain any of these are not
+	 * emitted. All {@link Member members} that contain them are also ignored.
+	 */
+	private final List<String> blacklist;
+	
+	public AstGenerator(JavaParser parser, List<String> blacklist) {
 		this.parser = parser;
+		this.blacklist = blacklist;
 	}
 	
 	/**
@@ -103,22 +113,58 @@ public class AstGenerator {
 		}).orElse(null);
 	}
 	
+	/**
+	 * Checks if a member is or uses blacklisted types.
+	 * @param member Member to check.
+	 * @return Whether the member should be omitted.
+	 */
+	private boolean isBlacklisted(AstNode node) {
+		// If this is a type reference or declaration, check if it is blacklisted
+		if (node instanceof TypeRef || node instanceof TypeDefinition) {
+			TypeRef ref = node instanceof TypeDefinition ? ((TypeDefinition) node).ref : (TypeRef) node;
+			String name = ref.name();
+			for (String fragment : blacklist) {
+				if (name.contains(fragment)) {
+					return true; // Blacklisted
+				}
+			}
+			return false; // Not blacklisted!
+		}
+		
+		// Check non-type node children
+		AtomicBoolean childBlacklisted = new AtomicBoolean(false);
+		node.walk(n -> {
+			// Avoid infinite recursion by excluding node given to us as parameter
+			if (n != node && isBlacklisted(n)) {
+				childBlacklisted.setPlain(true); // Blacklisted
+			}
+		});
+		return childBlacklisted.getPlain();
+	}
+	
 	private Optional<TypeDefinition> processType(String typeName, TypeDeclaration<?> type) {
 		ResolvedReferenceTypeDeclaration resolved = type.resolve();		
 		TypeRef typeRef = TypeRef.fromDeclaration(typeName, resolved);
 		List<Member> members = new ArrayList<>();
 		
+		// Create a lambda to support filtering members before they're added
+		Consumer<Member> addMember = (member) -> {
+			if (!isBlacklisted(member)) {
+				members.add(member);
+			}
+		};
+		
 		// If this is an enum, generate enum constants and compiler-generated methods
 		// JavaParser doesn't consider enum constants "members"
 		if (type.isEnumDeclaration()) {
 			for (EnumConstantDeclaration constant : type.asEnumDeclaration().getEntries()) {
-				members.add(new Field(constant.getNameAsString(), typeRef, getJavadoc(constant), true, true, true));
+				addMember.accept(new Field(constant.getNameAsString(), typeRef, getJavadoc(constant), true, true, true));
 			}
 			
-			members.add(new Method("valueOf", typeRef,
+			addMember.accept(new Method("valueOf", typeRef,
 					List.of(new Parameter("name", TypeRef.STRING, false)),
 					List.of(), null, true, true, false));
-			members.add(new Method("values", typeRef.makeArray(1), List.of(), List.of(), null, true, true, false));
+			addMember.accept(new Method("values", typeRef.makeArray(1), List.of(), List.of(), null, true, true, false));
 		}
 		
 		// Figure out supertypes and interfaces (needed by some members)
@@ -168,7 +214,7 @@ public class AstGenerator {
 			if (member.isFieldDeclaration()) {
 				// Even private fields may need Lombok getter/setter
 				try {
-					processField(members, member.asFieldDeclaration(), typeKind == TypeDefinition.Kind.INTERFACE, isPublic, lombokGetter, lombokSetter);
+					processField(addMember, member.asFieldDeclaration(), typeKind == TypeDefinition.Kind.INTERFACE, isPublic, lombokGetter, lombokSetter);
 				} catch (UnsolvedSymbolException e) {
 					// Allow symbol lookup to fail on private fields
 					if (isPublic) {
@@ -186,7 +232,7 @@ public class AstGenerator {
 			if (member.isTypeDeclaration()) {
 				// Recursively process an inner type
 				TypeDeclaration<?> inner = member.asTypeDeclaration();
-				processType(typeName + "." + inner.getNameAsString(), inner).ifPresent(members::add);
+				processType(typeName + "." + inner.getNameAsString(), inner).ifPresent(addMember);
 			} else if (member.isConstructorDeclaration()) {
 				ResolvedConstructorDeclaration constructor = member.asConstructorDeclaration().resolve();
 				Boolean[] nullable = member.asConstructorDeclaration().getParameters().stream()
@@ -194,9 +240,9 @@ public class AstGenerator {
 				// Constructor might be generic, but AFAIK TypeScript doesn't support that
 				// (constructors of generic classes are, of course, supported)
 				// Private constructors are not yet needed, so they won't exist
-				members.add(new Constructor(constructor.getName(), getParameters(constructor, nullable), getJavadoc(member), true));
+				addMember.accept(new Constructor(constructor.getName(), getParameters(constructor, nullable), getJavadoc(member), true));
 			} else if (member.isMethodDeclaration()) {
-				members.add(processMethod(member.asMethodDeclaration(), privateOverrides));
+				addMember.accept(processMethod(member.asMethodDeclaration(), privateOverrides));
 			}
 		}
 		
@@ -209,7 +255,7 @@ public class AstGenerator {
 					.map(member -> (Field) member)
 					.map(field -> new Parameter(field.name, field.type, false))
 					.collect(Collectors.toList());
-			members.add(new Constructor(type.getNameAsString(), params, null, true));
+			addMember.accept(new Constructor(type.getNameAsString(), params, null, true));
 		}
 		if (type.isAnnotationPresent("RequiredArgsConstructor")) {
 			List<Parameter> params = members.stream()
@@ -218,7 +264,7 @@ public class AstGenerator {
 					.filter(field -> field.isFinal)
 					.map(field -> new Parameter(field.name, field.type, false))
 					.collect(Collectors.toList());
-			members.add(new Constructor(type.getNameAsString(), params, null, true));
+			addMember.accept(new Constructor(type.getNameAsString(), params, null, true));
 		}
 		
 		// Create type definition
@@ -328,7 +374,7 @@ public class AstGenerator {
 		}
 	}
 	
-	private void processField(List<Member> members, FieldDeclaration member, boolean isInterface,
+	private void processField(Consumer<Member> addMember, FieldDeclaration member, boolean isInterface,
 			boolean isPublic, boolean lombokGetter, boolean lombokSetter) {
 		FieldDeclaration field = member.asFieldDeclaration();
 		boolean nullable = field.isAnnotationPresent("Nullable");
@@ -338,12 +384,12 @@ public class AstGenerator {
 		if (vars.size() == 1) {
 			FieldProps props = new FieldProps(field.resolve(), getJavadoc(member),
 					nullable, isPublic, isStatic, isFinal, lombokGetter, lombokSetter);
-			processFieldValue(members, props);
+			processFieldValue(addMember, props);
 		} else { // Symbol solver can't resolve this for us
 			for (VariableDeclarator var : vars) {
 				FieldProps props = new FieldProps(var.resolve(), getJavadoc(member),
 						nullable, isPublic, isStatic, isFinal, lombokGetter, lombokSetter);
-				processFieldValue(members, props);
+				processFieldValue(addMember, props);
 			}
 		}
 	}
@@ -370,18 +416,18 @@ public class AstGenerator {
 		}
 	}
 	
-	private void processFieldValue(List<Member> members, FieldProps props) {
+	private void processFieldValue(Consumer<Member> addMember, FieldProps props) {
 		TypeRef type = TypeRef.fromType(props.value.getType(), props.nullable);
 		// Add normal field to AST
-		members.add(new Field(props.value.getName(), type, props.javadoc,
+		addMember.accept(new Field(props.value.getName(), type, props.javadoc,
 				props.isPublic, props.isStatic, props.isFinal));
 		
 		// Generate public getter/setter pair for field (Lombok)
 		if (props.lombokGetter) {
-			members.add(new Getter(props.value.getName(), type, props.javadoc, true, props.isStatic, false));
+			addMember.accept(new Getter(props.value.getName(), type, props.javadoc, true, props.isStatic, false));
 		}
 		if (props.lombokSetter) {
-			members.add(new Setter(props.value.getName(), type, props.javadoc, true, props.isStatic, false));
+			addMember.accept(new Setter(props.value.getName(), type, props.javadoc, true, props.isStatic, false));
 		}
 	}
 }

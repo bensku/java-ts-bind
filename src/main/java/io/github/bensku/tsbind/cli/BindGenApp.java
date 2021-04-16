@@ -49,7 +49,7 @@ public class BindGenApp {
 		
 		// Prepare for AST generation
 		JavaParser parser = setupParser(args.symbolSources);
-		AstGenerator astGenerator = new AstGenerator(parser);
+		AstGenerator astGenerator = new AstGenerator(parser, args.blacklist);
 		
 		// Walk over input Java source files
 		try (Stream<Path> files = Files.walk(inputDir)
