@@ -4,6 +4,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 import com.beust.jcommander.Parameter;
+import com.google.common.base.Function;
 
 import io.github.bensku.tsbind.AstConsumer;
 import io.github.bensku.tsbind.JsonEmitter;
@@ -12,13 +13,13 @@ import io.github.bensku.tsbind.binding.BindingGenerator;
 public class Args {
 
 	public enum OutputFormat {
-		JSON(new JsonEmitter()),
-		TS_TYPES(new BindingGenerator());
+		JSON((args) -> new JsonEmitter()),
+		TS_TYPES((args) -> new BindingGenerator(args.index));
 		
-		public final AstConsumer<String> consumer;
+		public final Function<Args, AstConsumer<String>> consumerSource;
 		
-		OutputFormat(AstConsumer<String> consumer) {
-			this.consumer = consumer;
+		OutputFormat(Function<Args, AstConsumer<String>> consumer) {
+			this.consumerSource = consumer;
 		}
 	}
 	
@@ -26,7 +27,7 @@ public class Args {
 	public OutputFormat format = OutputFormat.TS_TYPES;
 	
 	@Parameter(names = "--in")
-	public Path inputPath;
+	public Path in;
 	
 	@Parameter(names = "--symbols")
 	public List<Path> symbols = List.of();
@@ -50,8 +51,11 @@ public class Args {
 	public List<String> blacklist = List.of();
 	
 	@Parameter(names = "--out")
-	public Path outDir = Path.of("");
+	public Path out = Path.of("");
 	
 	@Parameter(names = "--packageJson")
 	public Path packageJson;
+	
+	@Parameter(names = "--index")
+	public boolean index;
 }

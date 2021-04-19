@@ -31,6 +31,15 @@ public class BindingGenerator implements AstConsumer<String> {
 		EXCLUDED_TYPES.add(TypeRef.OBJECT);
 	}
 	
+	/**
+	 * Whether or not index.d.ts should be generated.
+	 */
+	private final boolean buildIndex;
+	
+	public BindingGenerator(boolean buildIndex) {
+		this.buildIndex = buildIndex;
+	}
+	
 	@Override
 	public Stream<Result<String>> consume(Map<String, TypeDefinition> types) {
 		Map<String, TsModule> modules = new HashMap<>();
@@ -44,6 +53,16 @@ public class BindingGenerator implements AstConsumer<String> {
 			StringBuilder out = outputs.computeIfAbsent(basePkg, key -> new StringBuilder());
 			module.write(types, out);
 		}
+		
+		// If requested, generate index.d.ts that references other files
+		if (buildIndex) {
+			StringBuilder index = new StringBuilder("// auto-generated references to packages\n");
+			for (String pkg : outputs.keySet()) {
+				index.append("/// <reference path='").append(pkg).append(".d.ts").append("' />\n");
+			}
+			outputs.put("index", index);
+		}
+		
 		return outputs.entrySet().stream().map(entry
 				-> new Result<>(entry.getKey() + ".d.ts", entry.getValue().toString()));
 	}

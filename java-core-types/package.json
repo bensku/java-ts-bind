@@ -7,5 +7,18 @@
     "url": "git+ssh://git@github.com/bensku/java-ts-bind.git",
     "directory": "java-core-types"
   },
-  "author": "bensku"
+  "author": "bensku",
+  "tsbindOptions": {
+    "in": "/usr/lib/jvm/openjdk-11/src.zip",
+    "out": "java-core-types",
+    "offset": "java.base",
+    "include": ["java.lang", "java.util", "java.io", "java.nio"],
+    "exclude": ["java.lang.Math",
+      "java.lang.StrictMath",
+      "java.util.concurrent",
+      "java.util.jar.Pack200",
+      "java.util.spi"
+    ],
+    "index": true
+  }
 }

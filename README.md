@@ -33,6 +33,7 @@ This is a command-line application.
   * The options should be placed under `tsbindOptions` object
   * Names of options lack -- prefixes but are otherwise same
   * Handy when you already have package.json for publishing
+* --index: generate index.d.ts that references other generated files
 
 ## Limitations
 java-ts-bind does not necessarily generate *valid* TypeScript declarations.

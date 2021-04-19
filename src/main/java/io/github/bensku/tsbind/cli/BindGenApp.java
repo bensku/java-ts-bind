@@ -61,7 +61,7 @@ public class BindGenApp {
 			MavenResolver resolver = new MavenResolver(args.repo);
 			inputPath = resolver.downloadSources(args.artifact);
 		} else {
-			inputPath = args.inputPath;
+			inputPath = args.in;
 		}
 		
 		// Create path to root of input files we have
@@ -79,7 +79,7 @@ public class BindGenApp {
 		// Walk over input Java source files
 		List<String> include = args.include;
 		List<String> exclude = args.exclude;
-		Path outDir = args.outDir;
+		Path outDir = args.out;
 		try (Stream<Path> files = Files.walk(inputDir)
 				.filter(Files::isRegularFile)
 				.filter(f -> f.getFileName().toString().endsWith(".java"))
@@ -99,7 +99,8 @@ public class BindGenApp {
 			}).map(astGenerator::parseType)
 			.flatMap(Optional::stream).forEach(type -> types.put(type.name(), type));
 			
-			Stream<Result<String>> results = args.format.consumer.consume(types);
+			Stream<Result<String>> results = args.format.consumerSource.apply(args)
+					.consume(types);
 			results.forEach(result -> {
 				try {
 					Files.writeString(outDir.resolve(result.name), result.result);

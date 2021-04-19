@@ -7,5 +7,12 @@
     "url": "git+ssh://git@github.com/bensku/java-ts-bind.git",
     "directory": "httpclient-types"
   },
-  "author": "bensku"
+  "author": "bensku",
+  "tsbindOptions": {
+    "in": "/usr/lib/jvm/openjdk-11/src.zip",
+    "out": "httpclient-types",
+    "offset": "java.net.http",
+    "exclude": ["jdk"],
+    "index": true
+  }
 }
