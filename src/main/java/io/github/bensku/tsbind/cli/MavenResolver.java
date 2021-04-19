@@ -74,12 +74,17 @@ public class MavenResolver {
 			String metadata = getSnapshotMetadata(group, artifact, version);
 			sourceUri = getSnapshotSources(metadata);
 		} else {
-			throw new UnsupportedOperationException("non-snapshot resolution is not yet supported");
+			sourceUri = URI.create(repo + "/" + group.replace('.', '/')
+					+ "/" + artifact + "/" + version
+					+ "/" + artifact + "-" + version + "-sources.jar");
 		}
 		
 		// Download source jar to temporary file
 		Path tempFile = Files.createTempFile("tsbind", "-sources.jar");
-		client.send(HttpRequest.newBuilder(sourceUri).GET().build(), BodyHandlers.ofFile(tempFile));
+		HttpResponse<Path> response = client.send(HttpRequest.newBuilder(sourceUri).GET().build(), BodyHandlers.ofFile(tempFile));
+		if (response.statusCode() != 200) {
+			throw new IOException("failed to GET " + sourceUri + ": HTTP " + response.statusCode());
+		}
 		return tempFile;
 	}
 }
