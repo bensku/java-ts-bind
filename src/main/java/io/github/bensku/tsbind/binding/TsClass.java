@@ -28,12 +28,12 @@ public class TsClass implements TsGenerator<TypeDefinition> {
 	
 	private static class MethodId {
 		String name;
+		boolean isPublic;
 		List<String> paramTypes;
 		
 		MethodId(Method method) {
-			// Use Method#originalName() to avoid deleting getters/setters
-			// We have a separate pass for invalidating them back to normal methods
-			this.name = method.originalName();
+			this.name = method.name();
+			this.isPublic = method.isPublic;
 			this.paramTypes = method.params.stream().map(param -> param.type)
 					.map(type -> TsTypes.primitiveName(type).orElse(type.name()))
 					.collect(Collectors.toList());
@@ -41,7 +41,7 @@ public class TsClass implements TsGenerator<TypeDefinition> {
 
 		@Override
 		public int hashCode() {
-			return Objects.hash(name, paramTypes);
+			return Objects.hash(name, isPublic, paramTypes);
 		}
 
 		@Override
@@ -56,7 +56,8 @@ public class TsClass implements TsGenerator<TypeDefinition> {
 				return false;
 			}
 			MethodId other = (MethodId) obj;
-			return Objects.equals(name, other.name) && Objects.equals(paramTypes, other.paramTypes);
+			return Objects.equals(name, other.name) && Objects.equals(isPublic, other.isPublic)
+					&& Objects.equals(paramTypes, other.paramTypes);
 		}
 	}
 	
@@ -260,8 +261,6 @@ public class TsClass implements TsGenerator<TypeDefinition> {
 			Map<String, List<Integer>> indices = new HashMap<>();
 			for (int i = 0; i < members.size(); i++) {
 				Member member = members.get(i);
-				if (member.name().contains("getCustomName"))
-					System.out.println(member + ", " + ((Method) member).returnType.simpleName());
 				indices.computeIfAbsent(member.name(), n -> new ArrayList<>()).add(i);
 			}
 			
