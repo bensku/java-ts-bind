@@ -1,7 +1,7 @@
 {
-  "name": "@bensku/java-core-types",
+  "name": "@craftjs-types/java.base",
   "version": "VERSION",
-  "description": "Java standard library types",
+  "description": "Java standard library (java.base) types",
   "repository": {
     "type": "git",
     "url": "git+ssh://git@github.com/bensku/java-ts-bind.git",
