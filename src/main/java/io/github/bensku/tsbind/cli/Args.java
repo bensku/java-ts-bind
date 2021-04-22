@@ -1,6 +1,7 @@
 package io.github.bensku.tsbind.cli;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 
 import com.beust.jcommander.Parameter;
@@ -30,10 +31,10 @@ public class Args {
 	public Path in;
 	
 	@Parameter(names = "--symbols")
-	public List<Path> symbols = List.of();
+	public List<Path> symbols = new ArrayList<>();
 	
 	@Parameter(names = "--repo")
-	public String repo;
+	public List<String> repos = new ArrayList<>();
 
 	@Parameter(names = "--artifact")
 	public String artifact;

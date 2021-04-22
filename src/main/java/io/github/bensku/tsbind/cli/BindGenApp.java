@@ -51,18 +51,23 @@ public class BindGenApp {
 					.create()
 					.fromJson(Files.readString(args.packageJson), PackageJson.class).tsbindOptions;
 			if (args == null) {
-				throw new IllegalArgumentException("missing tsbindOptions in --package");
+				throw new IllegalArgumentException("missing tsbindOptions in --packageJson");
 			}
 		}
 		
 		// Download the --artifact from Maven if provided
 		Path inputPath;
 		if (args.artifact != null) {
-			MavenResolver resolver = new MavenResolver(args.repo);
-			inputPath = resolver.downloadSources(args.artifact);
+			System.out.println("Resolving Maven artifact " + args.artifact);
+			args.repos.add("https://repo1.maven.org/maven2"); // Maven central as last resort
+			MavenResolver resolver = new MavenResolver(Files.createTempDirectory("tsbind"), args.repos);
+			MavenResolver.ArtifactResults results = resolver.downloadArtifacts(args.artifact, true);
+			inputPath = results.sourceJar;
+			args.symbols.addAll(results.symbols);
 		} else {
 			inputPath = args.in;
 		}
+		System.out.println("Generating types for " + inputPath + " to " + args.out);
 		
 		// Create path to root of input files we have
 		Path inputDir;
@@ -97,11 +102,15 @@ public class BindGenApp {
 					throw new RuntimeException(e);
 				}
 			}).map(astGenerator::parseType)
-			.flatMap(Optional::stream).forEach(type -> types.put(type.name(), type));
+			.flatMap(Optional::stream).forEach(type -> {
+				System.out.println("Parsed type " + type.name());
+				types.put(type.name(), type);
+			});
 			
 			Stream<Result<String>> results = args.format.consumerSource.apply(args)
 					.consume(types);
 			results.forEach(result -> {
+				System.out.println("Writing module " + result.name);
 				try {
 					Files.writeString(outDir.resolve(result.name), result.result);
 				} catch (IOException e) {
