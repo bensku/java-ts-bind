@@ -7,7 +7,7 @@ package io.github.bensku.tsbind;
 public class SourceUnit {
 
 	/**
-	 * Fully qualified class name.
+	 * Identifier, e.g. a file name.
 	 */
 	public final String name;
 	

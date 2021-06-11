@@ -83,8 +83,10 @@ public class AstGenerator {
 		CompilationUnit unit = result.getResult().orElseThrow();
 		TypeDeclaration<?> type = unit.findFirst(TypeDeclaration.class).orElseThrow();
 		if (type.getAccessSpecifier() == AccessSpecifier.PUBLIC) {
+			// SourceUnit lacks fully-qualified class name, so ask JavaParser to figure it out
+			String fqn = type.getFullyQualifiedName().orElseThrow();
 			try {
-				return processType(source.name, type);
+				return processType(fqn, type);
 			} catch (UnsolvedSymbolException e) {
 				System.err.println("failed to resolve symbol " + e.getName() + " in " + source.name);
 				return Optional.empty();

@@ -28,7 +28,7 @@ public class Args {
 	public OutputFormat format = OutputFormat.TS_TYPES;
 	
 	@Parameter(names = "--in")
-	public Path in;
+	public List<Path> in;
 	
 	@Parameter(names = "--symbols")
 	public List<Path> symbols = new ArrayList<>();
@@ -37,7 +37,7 @@ public class Args {
 	public List<String> repos = new ArrayList<>();
 
 	@Parameter(names = "--artifact")
-	public String artifact;
+	public List<String> artifacts = new ArrayList<>();
 	
 	@Parameter(names = "--offset")
 	public String offset = "";

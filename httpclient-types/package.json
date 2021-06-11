@@ -9,7 +9,7 @@
   },
   "author": "bensku",
   "tsbindOptions": {
-    "in": "/usr/lib/jvm/openjdk-11/src.zip",
+    "in": ["/usr/lib/jvm/openjdk-11/src.zip"],
     "out": "httpclient-types",
     "offset": "java.net.http",
     "exclude": ["jdk"],

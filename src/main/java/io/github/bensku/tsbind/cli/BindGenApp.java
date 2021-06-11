@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,47 +57,65 @@ public class BindGenApp {
 		}
 		
 		// Download the --artifact from Maven if provided
-		Path inputPath;
-		if (args.artifact != null) {
-			System.out.println("Resolving Maven artifact " + args.artifact);
-			args.repos.add("https://repo1.maven.org/maven2"); // Maven central as last resort
+		List<Path> inputPaths;
+		if (!args.artifacts.isEmpty()) {
 			MavenResolver resolver = new MavenResolver(Files.createTempDirectory("tsbind"), args.repos);
-			MavenResolver.ArtifactResults results = resolver.downloadArtifacts(args.artifact, true);
-			inputPath = results.sourceJar;
-			args.symbols.addAll(results.symbols);
+			args.repos.add("https://repo1.maven.org/maven2"); // Maven central as last resort
+			
+			// Add all artifacts to input paths and symbols
+			inputPaths = new ArrayList<>();
+			for (String artifact : args.artifacts) {
+				System.out.println("Resolving Maven artifact " + artifact);
+				MavenResolver.ArtifactResults results = resolver.downloadArtifacts(artifact, true);
+				inputPaths.add(results.sourceJar);
+				args.symbols.addAll(results.symbols);
+			}
 		} else {
-			inputPath = args.in;
+			inputPaths = args.in;
 		}
-		System.out.println("Generating types for " + inputPath + " to " + args.out);
-		
-		// Create path to root of input files we have
-		Path inputDir;
-		if (Files.isDirectory(inputPath)) {
-			inputDir = inputPath.resolve(args.offset);
-		} else { // Try to open a zip file
-			inputDir = FileSystems.newFileSystem(inputPath, (ClassLoader) null).getPath("/").resolve(args.offset);
-		}
+		System.out.println("Generating types for " + inputPaths + " to " + args.out);
 		
 		// Prepare for AST generation
 		JavaParser parser = setupParser(args.symbols);
 		AstGenerator astGenerator = new AstGenerator(parser, args.blacklist);
 		
 		// Walk over input Java source files
+		String offset = args.offset;
 		List<String> include = args.include;
 		List<String> exclude = args.exclude;
 		Path outDir = args.out;
-		try (Stream<Path> files = Files.walk(inputDir)
-				.filter(Files::isRegularFile)
-				.filter(f -> f.getFileName().toString().endsWith(".java"))
-				.filter(f -> !f.getFileName().toString().equals("package-info.java"))
-				.filter(f -> isIncluded(inputDir.relativize(f).toString().replace(File.separatorChar, '.'),
-						include, exclude))) {
+		
+		try (Stream<Path> files = inputPaths.stream().map(t -> {
+				if (Files.isDirectory(t)) {
+					return t;
+				} else {
+					// Path should be zip file, access it as directory
+					try {
+						return FileSystems.newFileSystem(t, (ClassLoader) null).getPath("/");
+					} catch (IOException e) {
+						throw new RuntimeException(e);
+					}
+				}
+			}).map(t -> t.resolve(offset)) // Apply offset argument
+			.flatMap(t -> {
+				// Walk all files from ALL inputs
+				try {
+					// Filter here, because we need to relativize to each input directory
+					return Files.walk(t)
+							.filter(f -> isIncluded(t.relativize(f).toString().replace(File.separatorChar, '.'),
+									include, exclude));
+				} catch (IOException e) {
+					throw new RuntimeException(e); // Thanks, Java
+				}
+			})
+			// Filter out files that are not likely contain Java source code
+			.filter(Files::isRegularFile)
+			.filter(f -> f.getFileName().toString().endsWith(".java"))
+			.filter(f -> !f.getFileName().toString().equals("package-info.java"))) {
 			Map<String, TypeDefinition> types = new HashMap<>();
 			files.map(path -> {
-				String name = inputDir.relativize(path).toString().replace('/', '.');
-				name = name.substring(0, name.length() - 5); // Strip .java
 				try {
-					return new SourceUnit(name, Files.readString(path));
+					return new SourceUnit(path.toString(), Files.readString(path));
 				} catch (IOException e) {
 					// TODO handle this better
 					throw new RuntimeException(e);
