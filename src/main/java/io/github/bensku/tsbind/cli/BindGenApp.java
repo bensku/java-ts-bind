@@ -74,7 +74,7 @@ public class BindGenApp {
 		if (Files.isDirectory(inputPath)) {
 			inputDir = inputPath.resolve(args.offset);
 		} else { // Try to open a zip file
-			inputDir = FileSystems.newFileSystem(inputPath, null).getPath("/").resolve(args.offset);
+			inputDir = FileSystems.newFileSystem(inputPath, (ClassLoader) null).getPath("/").resolve(args.offset);
 		}
 		
 		// Prepare for AST generation
