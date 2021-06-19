@@ -107,15 +107,32 @@ public class MavenResolver {
 			}
 		}
 		throw new ArtifactNotFoundException("cannot find artifact " + group + ":" + artifact + ":" + version);
-
+	}
+	
+	private String getLatestVersion(String group, String artifact) throws IOException, InterruptedException {
+		// Try each repo in order they were specified
+		for (String repo : repos) {
+			URI uri = URI.create(repo + "/" + group.replace('.', '/')
+					+ "/" + artifact + "/maven-metadata.xml");
+			HttpResponse<String> response = client.send(HttpRequest.newBuilder(uri).GET().build(), BodyHandlers.ofString());
+			if (response.statusCode() == 200) {
+				Document doc = Jsoup.parse(response.body(), "", Parser.xmlParser());
+				Element metadata = doc.selectFirst("metadata");
+				Element version = metadata.selectFirst("versioning").selectFirst("latest");
+				return version.text();
+			}
+		}
+		throw new ArtifactNotFoundException("cannot find artifact " + group + ":" + artifact);
 	}
 	
 	/**
 	 * Parses the given .pom file contents and gets a list of dependencies.
 	 * @param pomXml .pom XML content.
 	 * @return Dependency coordinates.
+	 * @throws InterruptedException 
+	 * @throws IOException 
 	 */
-	private List<String> getDependencies(String pomXml) {
+	private List<String> getDependencies(String pomXml) throws IOException, InterruptedException {
 		List<String> deps = new ArrayList<>();
 		
 		Document doc = Jsoup.parse(pomXml, "", Parser.xmlParser());
@@ -142,11 +159,14 @@ public class MavenResolver {
 					continue; // Not referenced from main source code
 				}
 			}
+			String versionText;
 			if (version == null) {
-				System.out.println(group.text() + ":" + artifact.text() + ": unknown version, Maven BOM?");
-				continue;
+				System.out.println(group.text() + ":" + artifact.text() + ": guessing version, Maven BOM is not yet supported");
+				versionText = getLatestVersion(group.text(), artifact.text());
+			} else {
+				versionText = version.text();
 			}
-			String dep = group.text() + ":" + artifact.text() + ":" + version.text();
+			String dep = group.text() + ":" + artifact.text() + ":" + versionText;
 			if (dep.contains("${")) {
 				System.out.println(dep + ": variables not supported");
 				continue;
