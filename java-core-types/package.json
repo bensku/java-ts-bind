@@ -9,7 +9,7 @@
   },
   "author": "bensku",
   "tsbindOptions": {
-    "in": ["/usr/lib/jvm/openjdk-11/src.zip"],
+    "in": ["/usr/lib/jvm/openjdk-16/src.zip"],
     "out": "java-core-types",
     "offset": "java.base",
     "include": ["java.lang", "java.util", "java.io", "java.nio"],

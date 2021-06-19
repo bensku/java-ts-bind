@@ -9,13 +9,13 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-java@v1
         with:
-          java-version: 11
+          java-version: 16
       - name: Gradle build
         run: ./gradlew shadowJar
       - name: Download JDK sources
         run: |
           sudo apt-get update
-          sudo apt-get install -y openjdk-11-source
+          sudo apt-get install -y openjdk-16-source
       - name: Generate java.base types
         run: >-
           java -jar build/libs/java-ts-bind-all.jar --packageJson java-core-types/package.json
@@ -28,14 +28,14 @@ jobs:
         if: github.ref == 'refs/heads/master'
       - name: Publish core types
         run: |
-          sed -i "s/VERSION/11.0.8-$(git rev-parse --short $GITHUB_SHA)/g" java-core-types/package.json
+          sed -i "s/VERSION/16.0.1-$(git rev-parse --short $GITHUB_SHA)/g" java-core-types/package.json
           npm publish --access=public java-core-types
         if: github.ref == 'refs/heads/master'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
       - name: Publish HttpClient types
         run: |
-          sed -i "s/VERSION/11.0.8-$(git rev-parse --short $GITHUB_SHA)/g" httpclient-types/package.json
+          sed -i "s/VERSION/16.0.1-$(git rev-parse --short $GITHUB_SHA)/g" httpclient-types/package.json
           npm publish --access=public httpclient-types
         if: github.ref == 'refs/heads/master'
         env:
