@@ -56,7 +56,7 @@ public class AstGenerator {
 	private final JavaParser parser;
 	
 	/**
-	 * Blacklisted type name fragments. Types that contain any of these are not
+	 * Blacklisted type name fragments. Types that match any of these are never
 	 * emitted. All {@link Member members} that contain them are also ignored.
 	 */
 	private final List<String> blacklist;
@@ -190,9 +190,13 @@ public class AstGenerator {
 			PublicFilterResult extendedResult = filterPublicTypes(decl.getExtendedTypes());
 			PublicFilterResult implementedResult = filterPublicTypes(decl.getImplementedTypes());
 			superTypes = extendedResult.publicTypes.stream()
-					.map(TypeRef::fromType).collect(Collectors.toList());;
+					.map(TypeRef::fromType)
+					.filter(t -> !isBlacklisted(t))
+					.toList();
 			interfaces = implementedResult.publicTypes.stream()
-					.map(TypeRef::fromType).collect(Collectors.toList());
+					.map(TypeRef::fromType)
+					.filter(t -> !isBlacklisted(t))
+					.toList();
 			
 			extendedResult.privateTypes.forEach(t -> privateOverrides.addAll(getAllMethods(t)));
 			implementedResult.privateTypes.forEach(t -> privateOverrides.addAll(getAllMethods(t)));
