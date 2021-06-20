@@ -27,6 +27,7 @@ import io.github.bensku.tsbind.AstConsumer.Result;
 import io.github.bensku.tsbind.AstGenerator;
 import io.github.bensku.tsbind.SourceUnit;
 import io.github.bensku.tsbind.ast.TypeDefinition;
+import io.github.bensku.tsbind.binding.EarlyTypeTransformer;
 
 public class BindGenApp {
 	
@@ -125,6 +126,12 @@ public class BindGenApp {
 				System.out.println("Parsed type " + type.name());
 				types.put(type.name(), type);
 			});
+			
+			// Apply early transformation passes that need all types
+			EarlyTypeTransformer earlyTransform = new EarlyTypeTransformer(types);
+			for (TypeDefinition def : types.values()) {
+				earlyTransform.addMissingOverloads(def);
+			}
 			
 			Stream<Result<String>> results = args.format.consumerSource.apply(args)
 					.consume(types);

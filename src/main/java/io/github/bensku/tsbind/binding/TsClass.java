@@ -6,10 +6,8 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -25,41 +23,6 @@ public class TsClass implements TsGenerator<TypeDefinition> {
 	public static final TsClass INSTANCE = new TsClass();
 	
 	private TsClass() {}
-	
-	private static class MethodId {
-		String name;
-		boolean isPublic;
-		List<String> paramTypes;
-		
-		MethodId(Method method) {
-			this.name = method.name();
-			this.isPublic = method.isPublic;
-			this.paramTypes = method.params.stream().map(param -> param.type)
-					.map(type -> TsTypes.primitiveName(type).orElse(type.name()))
-					.collect(Collectors.toList());
-		}
-
-		@Override
-		public int hashCode() {
-			return Objects.hash(name, isPublic, paramTypes);
-		}
-
-		@Override
-		public boolean equals(Object obj) {
-			if (this == obj) {
-				return true;
-			}
-			if (obj == null) {
-				return false;
-			}
-			if (getClass() != obj.getClass()) {
-				return false;
-			}
-			MethodId other = (MethodId) obj;
-			return Objects.equals(name, other.name) && Objects.equals(isPublic, other.isPublic)
-					&& Objects.equals(paramTypes, other.paramTypes);
-		}
-	}
 	
 	private static class Members {
 		
@@ -82,52 +45,6 @@ public class TsClass implements TsGenerator<TypeDefinition> {
 					.collect(Collectors.toList());
 			this.emitter = emitter;
 		}
-		
-		private void visitSupertypes(TypeDefinition type, Consumer<TypeDefinition> visitor) {
-			// Call visitor only on supertypes, not the type initially given as parameter
-			for (TypeRef ref : type.superTypes) {
-				Optional<TypeDefinition> def = emitter.resolveType(ref);
-				def.ifPresent(d -> {
-					visitor.accept(d);
-					visitSupertypes(d, visitor);
-				});
-			}
-			for (TypeRef ref : type.interfaces) {
-				Optional<TypeDefinition> def = emitter.resolveType(ref);
-				def.ifPresent(d -> {
-					visitor.accept(d);
-					visitSupertypes(d, visitor);
-				});
-			}
-		}
-		
-		/**
-		 * TypeScript removes inherited overloads unless they're re-specified.
-		 * We do exactly that.
-		 */
-		public void addMissingOverloads() {
-			// Figure out what methods we already have
-			Set<MethodId> methods = new HashSet<>();
-			for (Member member : members) {
-				if (member instanceof Method) {
-					methods.add(new MethodId((Method) member));
-				}
-			}
-			
-			// Visit supertypes and interfaces to see what we're missing
-			visitSupertypes(type, parent -> {
-				for (Member member : parent.members) {
-					if (member instanceof Method && type.hasMember(member.name())) {
-						// We have a member with same name
-						// If it has different signature, we need to copy the missing overload
-						if (!methods.contains(new MethodId((Method) member))) {
-							members.add(member);
-						}
-					}
-				}
-			});
-		}
-
 		
 		/**
 		 * Resolves the type which might contain the overridden method.
@@ -337,7 +254,6 @@ public class TsClass implements TsGenerator<TypeDefinition> {
 		
 		// Prepare to emit members
 		Members members = new Members(node, out);
-		members.addMissingOverloads();
 		members.fixInheritDoc();
 		members.removeDuplicates();
 		members.resolveConflicts();
