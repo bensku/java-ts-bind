@@ -136,8 +136,9 @@ public class MavenResolver {
 		List<String> deps = new ArrayList<>();
 		
 		Document doc = Jsoup.parse(pomXml, "", Parser.xmlParser());
-		// Select last <dependencies> so we don't hit one under <dependencyManagement>
-		Element depsTag = doc.selectFirst("project").select("dependencies").last();
+		// Select <dependencies> directly under project to avoid
+		// <dependencyManagement> and plugin dependencies
+		Element depsTag = doc.selectFirst("project").select("> dependencies").first();
 		if (depsTag == null) {
 			return deps; // No dependencies
 		}

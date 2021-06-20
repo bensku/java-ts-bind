@@ -60,13 +60,9 @@ public class EarlyTypeTransformer {
 		visitSupertypes(type, parent -> {
 			for (Member member : parent.members) {
 				if (member instanceof Method && type.hasMember(member.name())) {
-					if (new MethodId((Method) member).paramTypes.toString().contains("ComponentLike")) {
-						System.out.println(member.name() + " " + new MethodId((Method) member).paramTypes);
-					}
 					// We have a member with same name
 					// If it has different signature, we need to copy the missing overload
 					if (!methods.contains(new MethodId((Method) member))) {
-						System.out.println("add overload: " + member.name() + " " + type.name());
 						type.members.add(member);
 					}
 				}
