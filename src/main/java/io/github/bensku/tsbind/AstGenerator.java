@@ -88,7 +88,7 @@ public class AstGenerator {
 			try {
 				return processType(fqn, type);
 			} catch (UnsolvedSymbolException e) {
-				System.err.println("failed to resolve symbol " + e.getName() + " in " + source.name);
+				System.err.println("failed to resolve symbol " + e.getName() + " in " + source.name + "; omitting entire type!");
 				return Optional.empty();
 			}
 		} else {
@@ -142,6 +142,45 @@ public class AstGenerator {
 			}
 		});
 		return childBlacklisted.getPlain();
+	}
+	
+	private void processMember(String typeName, TypeDeclaration<?> type, TypeDefinition.Kind typeKind,
+			Set<String> privateOverrides, boolean lombokGetter, boolean lombokSetter,
+			BodyDeclaration<?> member, Consumer<Member> addMember) {
+		boolean isPublic = isPublic(type, member);
+		if (member.isFieldDeclaration()) {
+			// Even private fields may need Lombok getter/setter
+			try {
+				processField(addMember, member.asFieldDeclaration(), typeKind == TypeDefinition.Kind.INTERFACE, isPublic, lombokGetter, lombokSetter);
+			} catch (UnsolvedSymbolException e) {
+				// Allow symbol lookup to fail on private fields
+				if (isPublic) {
+					throw e;
+				}
+			}
+		}	
+		if (!isPublic) {
+			// For now, only private fields are needed
+			// Work as if other non-public members did not exist
+			return; // Neither implicitly or explicitly public
+		}
+		
+		// Process type depending on what it is
+		if (member.isTypeDeclaration()) {
+			// Recursively process an inner type
+			TypeDeclaration<?> inner = member.asTypeDeclaration();
+			processType(typeName + "." + inner.getNameAsString(), inner).ifPresent(addMember);
+		} else if (member.isConstructorDeclaration()) {
+			ResolvedConstructorDeclaration constructor = member.asConstructorDeclaration().resolve();
+			Boolean[] nullable = member.asConstructorDeclaration().getParameters().stream()
+					.map(param -> param.isAnnotationPresent("Nullable")).toArray(Boolean[]::new);
+			// Constructor might be generic, but AFAIK TypeScript doesn't support that
+			// (constructors of generic classes are, of course, supported)
+			// Private constructors are not yet needed, so they won't exist
+			addMember.accept(new Constructor(constructor.getName(), getParameters(constructor, nullable), getJavadoc(member), true));
+		} else if (member.isMethodDeclaration()) {
+			addMember.accept(processMethod(member.asMethodDeclaration(), privateOverrides));
+		}
 	}
 	
 	private Optional<TypeDefinition> processType(String typeName, TypeDeclaration<?> type) {
@@ -216,39 +255,11 @@ public class AstGenerator {
 		
 		// Handle normal members
 		for (BodyDeclaration<?> member : type.getMembers()) {
-			boolean isPublic = isPublic(type, member);
-			if (member.isFieldDeclaration()) {
-				// Even private fields may need Lombok getter/setter
-				try {
-					processField(addMember, member.asFieldDeclaration(), typeKind == TypeDefinition.Kind.INTERFACE, isPublic, lombokGetter, lombokSetter);
-				} catch (UnsolvedSymbolException e) {
-					// Allow symbol lookup to fail on private fields
-					if (isPublic) {
-						throw e;
-					}
-				}
-			}	
-			if (!isPublic) {
-				// For now, only private fields are needed
-				// Work as if other non-public members did not exist
-				continue; // Neither implicitly or explicitly public
-			}
-			
-			// Process type depending on what it is
-			if (member.isTypeDeclaration()) {
-				// Recursively process an inner type
-				TypeDeclaration<?> inner = member.asTypeDeclaration();
-				processType(typeName + "." + inner.getNameAsString(), inner).ifPresent(addMember);
-			} else if (member.isConstructorDeclaration()) {
-				ResolvedConstructorDeclaration constructor = member.asConstructorDeclaration().resolve();
-				Boolean[] nullable = member.asConstructorDeclaration().getParameters().stream()
-						.map(param -> param.isAnnotationPresent("Nullable")).toArray(Boolean[]::new);
-				// Constructor might be generic, but AFAIK TypeScript doesn't support that
-				// (constructors of generic classes are, of course, supported)
-				// Private constructors are not yet needed, so they won't exist
-				addMember.accept(new Constructor(constructor.getName(), getParameters(constructor, nullable), getJavadoc(member), true));
-			} else if (member.isMethodDeclaration()) {
-				addMember.accept(processMethod(member.asMethodDeclaration(), privateOverrides));
+			try {
+				processMember(typeName, type, typeKind, privateOverrides,
+						lombokGetter, lombokSetter, member, addMember);
+			} catch (UnsolvedSymbolException e) {
+				System.out.println("unresolved symbol " + e.getName() + " in " + typeName + "; omitting member");
 			}
 		}
 		
