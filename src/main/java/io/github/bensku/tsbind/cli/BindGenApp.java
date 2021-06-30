@@ -14,6 +14,8 @@ import java.util.stream.Stream;
 
 import com.beust.jcommander.JCommander;
 import com.github.javaparser.JavaParser;
+import com.github.javaparser.ParserConfiguration;
+import com.github.javaparser.ParserConfiguration.LanguageLevel;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.JarTypeSolver;
@@ -174,7 +176,9 @@ public class BindGenApp {
 		}
 		
 		JavaSymbolSolver symbolSolver = new JavaSymbolSolver(typeSolver);
-		JavaParser parser = new JavaParser();
+		ParserConfiguration config = new ParserConfiguration();
+		config.setLanguageLevel(LanguageLevel.JAVA_16);
+		JavaParser parser = new JavaParser(config);
 		parser.getParserConfiguration().setSymbolResolver(symbolSolver);
 		return parser;
 	}
