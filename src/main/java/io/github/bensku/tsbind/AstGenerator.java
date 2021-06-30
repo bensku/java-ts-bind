@@ -81,7 +81,11 @@ public class AstGenerator {
 			return Optional.empty();
 		}
 		CompilationUnit unit = result.getResult().orElseThrow();
-		TypeDeclaration<?> type = unit.findFirst(TypeDeclaration.class).orElseThrow();
+		TypeDeclaration<?> type = unit.findFirst(TypeDeclaration.class).orElse(null);
+		if (type == null) {
+			System.err.println("no type declaration found in source unit: " + source.name);
+			return Optional.empty();
+		}
 		if (type.getAccessSpecifier() == AccessSpecifier.PUBLIC) {
 			// SourceUnit lacks fully-qualified class name, so ask JavaParser to figure it out
 			String fqn = type.getFullyQualifiedName().orElseThrow();
