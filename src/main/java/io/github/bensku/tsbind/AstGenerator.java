@@ -94,6 +94,11 @@ public class AstGenerator {
 			} catch (UnsolvedSymbolException e) {
 				System.err.println("failed to resolve symbol " + e.getName() + " in " + source.name + "; omitting entire type!");
 				return Optional.empty();
+			} catch (Exception e) {
+				// RecordDeclaration doesn't get caught by the above. 
+				// StructuresLocateEvent in Paper 1.18 is triggering this.
+				System.err.println("failed to resolve in " + source.name + "; omitting entire type!");
+				return Optional.empty();
 			}
 		} else {
 			return Optional.empty();
@@ -302,7 +307,7 @@ public class AstGenerator {
 	private PublicFilterResult filterPublicTypes(List<ClassOrInterfaceType> types) {
 		PublicFilterResult result = new PublicFilterResult();
 		for (ClassOrInterfaceType type : types) {
-			ResolvedReferenceType resolved = type.resolve();
+			ResolvedReferenceType resolved = type.resolve().asReferenceType();
 			if (isPublic(resolved.getTypeDeclaration().orElse(null))) {
 				result.publicTypes.add(resolved);
 			} else {
