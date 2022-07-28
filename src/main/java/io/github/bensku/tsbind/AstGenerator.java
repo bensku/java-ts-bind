@@ -307,7 +307,7 @@ public class AstGenerator {
 	private PublicFilterResult filterPublicTypes(List<ClassOrInterfaceType> types) {
 		PublicFilterResult result = new PublicFilterResult();
 		for (ClassOrInterfaceType type : types) {
-			ResolvedReferenceType resolved = type.resolve();
+			ResolvedReferenceType resolved = type.resolve().asReferenceType();
 			if (isPublic(resolved.getTypeDeclaration().orElse(null))) {
 				result.publicTypes.add(resolved);
 			} else {
