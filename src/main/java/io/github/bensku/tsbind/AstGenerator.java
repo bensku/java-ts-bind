@@ -94,6 +94,11 @@ public class AstGenerator {
 			} catch (UnsolvedSymbolException e) {
 				System.err.println("failed to resolve symbol " + e.getName() + " in " + source.name + "; omitting entire type!");
 				return Optional.empty();
+			} catch (Exception e) {
+				// RecordDeclaration doesn't get caught by the above. 
+				// StructuresLocateEvent in Paper 1.18 is triggering this.
+				System.err.println("failed to resolve in " + source.name + "; omitting entire type!");
+				return Optional.empty();
 			}
 		} else {
 			return Optional.empty();
